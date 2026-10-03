@@ -1,0 +1,46 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Environment / secrets ---
+.env
+.env.local
+.env.*.local
+
+# --- Node / frontend ---
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.local
+
+# --- Data ---
+# Raw and external data are downloaded, not committed (size + licence).
+# Processed data IS committed so everyone trains on the same rows.
+data/raw/*
+!data/raw/.gitkeep
+data/external/*
+!data/external/.gitkeep
+
+# --- Notebooks ---
+.ipynb_checkpoints/
+
+# --- Editors ---
+.vscode/
+.idea/
+*.swp
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# NOTE: models/ and reports/ are intentionally NOT ignored.
+# Model weights are a required deliverable, and docs cite numbers from reports/.

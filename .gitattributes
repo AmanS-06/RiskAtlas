@@ -1,0 +1,15 @@
+# Normalise line endings so Windows, macOS and Linux teammates do not
+# produce whole-file diffs on every commit.
+* text=auto eol=lf
+
+# Binary assets: never normalise.
+*.glb     binary
+*.gltf    binary
+*.obj     binary
+*.joblib  binary
+*.pkl     binary
+*.xlsx    binary
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.pdf     binary

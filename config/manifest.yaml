@@ -1,0 +1,29 @@
+# manifest.yaml - maps each prediction target to its mesh, feature set and model file.
+#
+# This is what makes "add a vessel, feature or model without a redesign" true, which
+# the problem statement lists as a technical requirement. Adding a fourth vessel should
+# be an edit to this file, not a code change.
+#
+# Owner: Person-2 (backend). Mesh names must match Person-3's .glb node names exactly.
+#
+# Target names are uppercase and fixed: CAD, LAD, LCX, RCA.
+#
+# Planned shape for each entry:
+#
+#   TARGET:
+#     label:     human-readable name for the UI
+#     mesh:      exact node name in the .glb (null for CAD, which is not one vessel)
+#     features:  which feature set to use, or "all"
+#     model:     path under models/
+#
+# Empty until models and meshes exist.
+
+targets: {}
+
+# Features excluded from ALL model inputs to prevent target leakage.
+# Required by the problem statement. Enforced by a test - do not edit casually.
+forbidden_features:
+  - LAD
+  - LCX
+  - RCA
+  - Cath

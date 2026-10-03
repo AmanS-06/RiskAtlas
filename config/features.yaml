@@ -1,0 +1,21 @@
+# features.yaml - the canonical definition of every model input feature.
+#
+# SINGLE SOURCE OF TRUTH. Nothing in pipeline/, api/, web/ or cv/ may hardcode a
+# feature name, unit or reference range. Read it from here.
+#
+# Owner: Person-1 (ML). Tell the team before editing - everyone depends on this.
+#
+# Planned shape for each entry:
+#
+#   - name:        snake_case canonical name used everywhere in the codebase
+#     raw:         exact column name in the Z-Alizadeh Sani spreadsheet
+#     type:        numeric | binary | categorical
+#     unit:        display unit, or null
+#     range:       [min, max] clinical reference range, or null
+#     group:       demographics | vitals | labs | ecg | echo | symptoms
+#     mutable:     true if a patient could plausibly change it (drives counterfactuals)
+#     anchor:      mesh name this feature is visually pinned to in the 3D scene, or null
+#
+# Empty until the day-1 data audit.
+
+features: []

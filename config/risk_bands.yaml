@@ -1,0 +1,22 @@
+# risk_bands.yaml - maps a predicted probability to a risk band, colour and label.
+#
+# SINGLE SOURCE OF TRUTH for risk colour. The 3D viewer, the dashboard and the docs
+# all read these values. Never hardcode a hex colour in a component.
+#
+# Owner: Person-3 (3D). Served to the frontend via /meta.
+#
+# Accessibility rule: risk is never communicated by colour alone. Every band carries
+# a text label, and the UI must show it.
+#
+# Planned shape for each entry:
+#
+#   - id:      low | moderate | high
+#     label:   text shown in the UI
+#     min:     lower bound of probability (inclusive)
+#     max:     upper bound (exclusive)
+#     color:   hex, used for the vessel material and the dashboard chip
+#
+# Thresholds are provisional - Person-1 sets the real operating points after
+# calibration, so treat these as placeholders.
+
+bands: []
