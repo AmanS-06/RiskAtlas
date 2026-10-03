@@ -11,10 +11,45 @@ afterthought.
 
 ## Datasets
 
-| Asset | Source | Licence | Used for | Added by |
-|---|---|---|---|---|
-| Extension of Z-Alizadeh Sani (303 patients) | UCI ML Repository / Kaggle | TBD — confirm before use | Primary training and evaluation | TBD |
-| UCI Heart Disease (920 patients, 4 sites) | UCI ML Repository | TBD — confirm before use | External validation (reduced feature set) | TBD |
+### Extension of Z-Alizadeh Sani — primary training and evaluation
+
+| | |
+|---|---|
+| **Source** | UCI Machine Learning Repository, dataset id **411** |
+| **Page** | https://archive.ics.uci.edu/dataset/411/extention+of+z+alizadeh+sani+dataset |
+| **Download** | `https://archive.ics.uci.edu/static/public/411/extention+of+z+alizadeh+sani+dataset.zip` |
+| **DOI** | https://doi.org/10.24432/C5461K |
+| **Licence** | **CC BY 4.0** — attribution required, commercial use and adaptation permitted |
+| **Contents** | 303 patients, 59 features, no missing cells |
+| **Used for** | Training and evaluating the CAD, LAD, LCX and RCA models |
+
+**Required attribution** (reproduce in the README, the documentation and the demo
+video credits):
+
+> Alizadehsani, R., Roshanzamir, M., & Sani, Z. (2013). *extention of Z-Alizadeh sani
+> dataset* [Data set]. UCI Machine Learning Repository.
+> https://doi.org/10.24432/C5461K
+> Licensed under CC BY 4.0.
+
+Note: UCI misspells "extention" in the URL, the archive and the citation. Preserve the
+spelling when linking or citing.
+
+### UCI Heart Disease — external validation
+
+| | |
+|---|---|
+| **Source** | UCI Machine Learning Repository, dataset id **45** |
+| **Page** | https://archive.ics.uci.edu/dataset/45/heart+disease |
+| **Download** | `https://archive.ics.uci.edu/static/public/45/heart+disease.zip` |
+| **Licence** | **CC BY 4.0** — attribution required |
+| **Contents** | 920 patients across Cleveland, Hungary, Switzerland and VA Long Beach; 76 attributes, 14 in common use |
+| **Used for** | External validation of a reduced-feature model |
+
+**Required attribution:**
+
+> Janosi, A., Steinbrunn, W., Pfisterer, M., & Detrano, R. (1989). *Heart Disease*
+> [Data set]. UCI Machine Learning Repository. https://doi.org/10.24432/C52P4X
+> Licensed under CC BY 4.0.
 
 ## 3D anatomical meshes
 
