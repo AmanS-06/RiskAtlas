@@ -249,6 +249,11 @@ reference, real request and response examples, error codes: [docs/api.md](docs/a
   instead". Check `curl http://127.0.0.1:8000/health`.
 - **A corporate proxy or firewall blocks pip, npm or the UCI download.** Configure the proxy for pip and npm;
   for the data, place the files by hand (see Retrain).
+- **Windows: `DLL load failed while importing _devicearray: An Application Control policy has blocked this file`.**
+  A managed-laptop security policy blocked a file from numba (a dependency of shap), so every API and model test
+  fails. `requirements.txt` pins numba 0.65.1 and llvmlite 0.47.0, which load fine on such a machine (verified on a
+  Windows 11 laptop: 97 passed, 3 skipped). If you installed before that pin, run
+  `pip install numba==0.65.1 llvmlite==0.47.0`. If numba is blocked even then, run the Python side on another machine.
 - **`npm ci` fails with an engines error.** Node is older than 20.19; upgrade Node.
 - **HTTP 503 `model_mismatch`.** The models were trained against a different `config/features.yaml`; run
   `python -m pipeline train`.
