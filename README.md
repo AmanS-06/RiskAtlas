@@ -77,8 +77,8 @@ Not deployed yet.
 
 Repeated cross-validation of the whole modelling procedure on all 303 patients (5 folds × 2 repeats; model
 selection, tuning, calibration and thresholds are redone inside each fold), with 95% bootstrap intervals.
-Generated from `reports/` by `docs/build/gen_tables.py` and identical to
-[docs/ml_results.md](docs/ml_results.md).
+Generated from `reports/` by `docs/build/gen_tables.py` and checked against
+[docs/ml_results.md](docs/ml_results.md) (the last column of the first table is an addition).
 
 <!-- BEGIN:headline-auc -->
 | Target | Prevalence | ROC-AUC [95% CI] | Brier [95% CI] | Brier, constant prevalence forecast |
@@ -206,8 +206,9 @@ fails (a proxy or a blocked host), fetch the xlsx from the
 python -c "from pathlib import Path; from pipeline.external import parse_zip, CACHE; CACHE.parent.mkdir(parents=True, exist_ok=True); parse_zip(Path('heart+disease.zip').read_bytes()).to_csv(CACHE, index=False)"
 ```
 
-Single steps run as `python -m pipeline train`, `python -m pipeline report`, and so on. Training is
-deterministic (seed 42). Results are written to `reports/` and `docs/ml_results.md`. Methods:
+Single steps run as `python -m pipeline train`, `python -m pipeline report`, and so on. A full run takes
+about 15 minutes on a recent laptop (it took about 30 on a shared 4-core VM). The seed is 42: the final models
+reproduce exactly, while the cross-validated estimates can move in the third decimal between runs. Results are written to `reports/` and `docs/ml_results.md`. Methods:
 [docs/ml_methods.md](docs/ml_methods.md); interface for the API and frontend:
 [docs/ml_interface.md](docs/ml_interface.md).
 

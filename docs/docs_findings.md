@@ -80,9 +80,50 @@ Inconsistencies and gaps found while writing `README.md`, `docs/PROJECT_DOCUMENT
     stratified; the index is never a feature) but `docs/leakage_audit.md` does not mention it. Reproduce with
     `python docs/build/row_order_check.py` (needs the dataset); output in `docs/build/row_order_check.json`.
 
+17. **Reruns reproduce the final models but not the cross-validated estimates bit for bit.** `docs/ml_methods.md`
+    section 13 says "Training is deterministic: rerunning it reproduces the same models". Checked on 2026-10-04
+    (clean copy, same dataset hash, pinned libraries, `python -m pipeline audit train evaluate explain analysis
+    counterfactual report`; `external` could not download): the final models have the same families, the same cut
+    points (difference 1e-14) and identical probabilities on 30 random inputs (difference 3e-14), and the same
+    top SHAP drivers. The procedure cross-validation differs slightly: headline ROC-AUC CAD 0.9183 vs 0.9187, LAD
+    0.8354 vs 0.8375, LCX 0.7201 vs 0.7250, RCA 0.7279 vs 0.7328; outer-fold family choices differ (LCX: lr 6, rf 4
+    vs lr 8, rf 2); out-of-fold sensitivities differ by up to about 0.02. All inside the intervals. Likely
+    multi-threaded fitting or parallel jobs, not investigated. The committed `reports/` and `docs/ml_results.md`
+    are the numbers quoted everywhere. Suggest softening the "deterministic" sentence, or fixing the source
+    (single-threaded XGBoost and `n_jobs=1` in the procedure CV). Details: `docs/build/retrain_check.json`
+    (`python docs/build/compare_retrain.py <retrained copy>`). Wall time of the full pipeline: about 30 minutes on a
+    shared 4-core VM (`docs/ml_results.md` and the README say about 15 minutes on a recent laptop).
+18. **One viewer browser test is load-sensitive.** In `web/viewer-demo`, `npm run test:e2e` failed once ("wheel zoom
+    and drag rotate move the view; resetView() returns to the start": expected 128.3 to be less than 1.5) while the
+    machine load average was about 14, and all 35 passed on a re-run at a load of about 8. The test depends on a
+    0.5 s camera tween finishing in time. `docs/viewer.md` says only the TIMING tests depend on machine speed.
+
 ## C. Verification log
 
-See the report that accompanied this branch for the commands run and their results. Summary of what could not
-be verified in the sandbox: downloading either UCI dataset (the host is blocked; the dataset file used for the
-retrain check was supplied separately and matches the SHA-256 in `reports/data_audit.json`), a real GPU, other
-browsers, and deployment.
+Run on 2026-10-04 in a clean copy made with `git archive` of the base commit (Python 3.11.15, Node 22.22.0,
+npm 10.9.4, Chromium from `/opt/pw-browsers`):
+
+| Command | Result |
+|---|---|
+| `python3.11 -m venv .venv && pip install -r requirements.txt` | succeeded |
+| `python -m pytest` | 97 passed, 3 skipped (need the dataset), about 55 s |
+| `uvicorn api.main:app --port 8000` | healthy after about 14 s; `POST /predict/fast` and `/predict` answered (full 3.9 s); a request with key `LAD` gave HTTP 422 `leakage` |
+| `API_MOCK=1 uvicorn api.main:app` | `/health` says `mock`; header `x-riskatlas-mock: true` |
+| `cd web && npm ci` | succeeded |
+| `npm test` | 11 files, 182 tests passed |
+| `npm run build` | succeeded |
+| `npm run dev` (port 5173 was taken, so Vite chose 5175), `npm run preview` (4173) | `/api/health` and `/api/meta` reach the backend through the proxy |
+| `E2E_REAL_API=http://127.0.0.1:8000 npm run e2e` | 25 passed, 0 failed, about 2 min 16 s |
+| `?mock=1` and `VITE_API_MOCK=1` | the "MOCK DATA - not a real prediction" chip is shown; absent without them |
+| `npm run typecheck` | passed |
+| `npm run lint`, `npm run format:check` | **fail** (item 5) |
+| `cd web/viewer-demo && npm ci && npm test` | 47 passed |
+| `npm run test:e2e` (viewer-demo) | 35 passed on re-run; 34 of 35 on the first run under load (item 18) |
+| `python -m pipeline` on the raw xlsx in `data/raw/` | audit, train, evaluate, explain ran (train 25 min on a loaded VM); `external` stopped because the UCI archive is unreachable; then `python -m pipeline analysis counterfactual report` ran (item 17) |
+| The README's `python -c "... parse_zip ..."` snippet | ran on a synthetic four-file zip; not on the real archive |
+| `python docs/build/gen_tables.py --check`, `python docs/build/check_links.py` | OK |
+
+Could not be verified in the sandbox: downloading either UCI dataset (host blocked; the xlsx used for the retrain
+was supplied separately and has the SHA-256 in `reports/data_audit.json`), `git clone` from GitHub (the same
+tree was obtained with `git archive`), a real GPU, browsers other than Chromium, Node 20, Windows or macOS, and
+any deployment.
