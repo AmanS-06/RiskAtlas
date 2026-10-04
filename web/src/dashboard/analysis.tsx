@@ -104,62 +104,64 @@ export function ExplanationPanel(p: AnalysisProps) {
                 </button>
               ))}
             </div>
-            <table className="shap-table" data-testid="shap-table">
-              <caption className="visually-hidden">Contribution of each input to the {t.label} estimate</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Input</th>
-                  <th scope="col">Value</th>
-                  <th scope="col" className="col-effect">
-                    Effect
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {view.rows.map((r) => {
-                  const spec = specOf.get(r.feature);
-                  const vl = spec ? valueLabel(spec, p.raw[r.feature]) : null;
-                  return (
-                    <tr key={r.feature} data-feature={r.feature} data-direction={r.direction}>
-                      <th scope="row">{labelOf.get(r.feature) ?? r.feature}</th>
-                      <td>{vl ?? <em className="estimated">estimated</em>}</td>
+            <div className="table-wrap">
+              <table className="shap-table" data-testid="shap-table">
+                <caption className="visually-hidden">Contribution of each input to the {t.label} estimate</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Input</th>
+                    <th scope="col">Value</th>
+                    <th scope="col" className="col-effect">
+                      Effect
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {view.rows.map((r) => {
+                    const spec = specOf.get(r.feature);
+                    const vl = spec ? valueLabel(spec, p.raw[r.feature]) : null;
+                    return (
+                      <tr key={r.feature} data-feature={r.feature} data-direction={r.direction}>
+                        <th scope="row">{labelOf.get(r.feature) ?? r.feature}</th>
+                        <td>{vl ?? <em className="estimated">estimated</em>}</td>
+                        <td className="col-effect">
+                          <span className="shap-cell">
+                            <span className={`shap-glyph dir-${r.direction}`} aria-hidden="true">
+                              {GLYPH[r.direction]}
+                            </span>
+                            <span className="diverge" aria-hidden="true">
+                              <span
+                                className={`diverge-bar dir-${r.direction}`}
+                                style={{ width: `${view.max > 0 ? (Math.abs(r.value) / view.max) * 50 : 0}%` }}
+                              />
+                            </span>
+                            <span className="shap-value">
+                              {pp(r.value)}
+                              <span className="visually-hidden"> {WORD[r.direction]}</span>
+                            </span>
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {view.rest.count > 0 && (
+                    <tr className="rest-row">
+                      <th scope="row">{view.rest.count} other inputs</th>
+                      <td />
                       <td className="col-effect">
                         <span className="shap-cell">
-                          <span className={`shap-glyph dir-${r.direction}`} aria-hidden="true">
-                            {GLYPH[r.direction]}
+                          <span className="shap-glyph" aria-hidden="true">
+                            {GLYPH.none}
                           </span>
-                          <span className="diverge" aria-hidden="true">
-                            <span
-                              className={`diverge-bar dir-${r.direction}`}
-                              style={{ width: `${view.max > 0 ? (Math.abs(r.value) / view.max) * 50 : 0}%` }}
-                            />
-                          </span>
-                          <span className="shap-value">
-                            {pp(r.value)}
-                            <span className="visually-hidden"> {WORD[r.direction]}</span>
-                          </span>
+                          <span className="diverge" aria-hidden="true" />
+                          <span className="shap-value">{pp(view.rest.sum)}</span>
                         </span>
                       </td>
                     </tr>
-                  );
-                })}
-                {view.rest.count > 0 && (
-                  <tr className="rest-row">
-                    <th scope="row">{view.rest.count} other inputs</th>
-                    <td />
-                    <td className="col-effect">
-                      <span className="shap-cell">
-                        <span className="shap-glyph" aria-hidden="true">
-                          {GLYPH.none}
-                        </span>
-                        <span className="diverge" aria-hidden="true" />
-                        <span className="shap-value">{pp(view.rest.sum)}</span>
-                      </span>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </>
         )}
       </TargetTabs>

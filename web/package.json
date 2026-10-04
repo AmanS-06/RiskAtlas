@@ -18,7 +18,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "node tests/e2e/run.mjs",
-    "sync:mock": "node scripts/sync-mock.mjs"
+    "sync:mock": "node scripts/sync-mock.mjs",
+    "palette": "node scripts/palette-report.mjs"
   },
   "dependencies": {
     "react": "19.3.0",

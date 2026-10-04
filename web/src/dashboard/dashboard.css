@@ -399,7 +399,8 @@
 }
 .segmented label:last-child.is-on span {
   background: var(--surface-2);
-  color: var(--text);
+  color: var(--text-muted);
+  font-weight: 500;
 }
 .segmented label:has(input:focus-visible) {
   outline: var(--focus-ring);
@@ -427,6 +428,7 @@
   margin: 10px 0;
 }
 .table-wrap {
+  position: relative; /* contains the visually-hidden spans so they cannot widen the page */
   overflow-x: auto;
   max-width: 100%;
 }
@@ -454,7 +456,7 @@ tbody th {
   color: var(--text-muted);
 }
 .col-effect {
-  min-width: 190px;
+  min-width: 150px;
 }
 .shap-cell {
   display: grid;
