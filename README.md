@@ -33,9 +33,9 @@ Standard-model viewer harness: [low](docs/figures/viewer_bands_all_low.png),
 ## Status
 
 Working end to end: ML pipeline, FastAPI backend, React dashboard and three.js viewer are integrated
-and tested. Checked on a clean copy: 97 Python tests pass (3 more need the dataset and are skipped), 188
-web unit and component tests pass, and 33 browser tests pass, including a suite against the real
-backend. The viewer harness has 65 unit and 51 browser tests of its own.
+and tested. Checked on a clean copy: 97 Python tests pass (3 more need the dataset and are skipped), 193
+web unit and component tests pass, and 38 browser tests pass against the real backend (33 without it).
+The viewer harness has 72 unit and 56 browser tests of its own.
 
 Not built: a heartbeat animation, the 17-segment bullseye, the clinical-report reader (`cv/`) and the
 natural-language layer (`slm/`); the last two folders are empty placeholders. Not deployed: there is
@@ -186,13 +186,13 @@ the API to the web origin.
 ```bash
 python -m pytest                                  # about a minute; 97 pass, 3 skip without the dataset
 cd web
-npm test                                          # 188 unit and component tests (Vitest, jsdom)
+npm test                                          # 193 unit and component tests (Vitest, jsdom)
 npm run e2e                                       # real-browser tests, mock mode
 E2E_REAL_API=http://127.0.0.1:8000 npm run e2e    # adds 5 tests against a running backend: 33 in total
 npm run typecheck                                 # tsc --noEmit
 ```
 
-The stand-alone viewer harness has its own tests (65 unit, 51 browser): `cd web/viewer-demo && npm ci && npm test && npm run test:e2e`.
+The stand-alone viewer harness has its own tests (72 unit, 56 browser): `cd web/viewer-demo && npm ci && npm test && npm run test:e2e`.
 
 ### Retrain the models (optional)
 
