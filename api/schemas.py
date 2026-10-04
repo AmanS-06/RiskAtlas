@@ -14,10 +14,10 @@ from pipeline.settings import REPORTS_DIR
 
 API_VERSION = "1.0.0"
 
-# Wording from README.md. Returned by /meta and with every prediction.
-DISCLAIMER = ("RiskAtlas is for decision support and educational purposes only. It is not a substitute "
-              "for formal diagnostic imaging or clinical judgement, and it must not be used to make "
-              "patient care decisions.")
+# Same wording as the README and the web UI (web/src/shared/constants.ts). Returned by /meta and with every prediction.
+DISCLAIMER = ("RiskAtlas is a research prototype for decision support and educational purposes only. It is not a "
+              "medical device, does not provide a diagnosis, and is not a substitute for formal diagnostic imaging "
+              "or clinical judgement.")
 
 
 # ---------------------------------------------------------------------------------------------
