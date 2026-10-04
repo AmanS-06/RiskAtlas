@@ -80,4 +80,4 @@ library carries an unusual obligation (attribution, copyleft, non-commercial).
 
 | Library | Licence | Note |
 |---|---|---|
-| — | — | — |
+| TabPFN v2 (`tabpfn`, weights `Prior-Labs/TabPFN-v2-clf`) | Prior Labs License (Apache 2.0 with an additional attribution requirement), https://priorlabs.ai/tabpfn-license/ | **Experiment only, not shipped.** Used in `experiments/model_comparison.py`, whose results appear in `docs/ml_results.md` section 14. Not a dependency of the app. Check the attribution wording on the licence page before the final submission. Cite: Hollmann et al., "Accurate predictions on small data with a tabular foundation model", Nature 637 (2025). |

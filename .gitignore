@@ -42,5 +42,12 @@ data/external/*
 Thumbs.db
 desktop.ini
 
-# NOTE: models/ and reports/ are intentionally NOT ignored.
+# --- Model staging and backups ---
+# Only the promoted models in models/ are deliverables. Committing previous/ would
+# double the repo size on every retrain.
+models/staging/
+models/previous/
+models/*.tmp
+
+# NOTE: models/ and reports/ are otherwise intentionally NOT ignored.
 # Model weights are a required deliverable, and docs cite numbers from reports/.

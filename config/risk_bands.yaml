@@ -1,22 +1,29 @@
-# risk_bands.yaml - maps a predicted probability to a risk band, colour and label.
+# risk_bands.yaml - the risk bands: id, label and colour, lowest risk first.
 #
 # SINGLE SOURCE OF TRUTH for risk colour. The 3D viewer, the dashboard and the docs
 # all read these values. Never hardcode a hex colour in a component.
 #
-# Owner: Person-3 (3D). Served to the frontend via /meta.
+# Owner: Person-3 (3D). Served to the frontend via /meta. Exactly three bands.
+#
+# Cut points are deliberately NOT here. Each target gets its own data-derived cut
+# points from out-of-fold predictions (rule-out at 95% sensitivity, rule-in at 90%
+# specificity), written to models/metadata.json as rule_out / rule_in and returned by
+# /predict. So "moderate" can start at a different probability on LAD than on RCA.
+# That is intentional: the vessels have very different prevalence (LAD 58%, RCA 38%).
 #
 # Accessibility rule: risk is never communicated by colour alone. Every band carries
 # a text label, and the UI must show it.
 #
-# Planned shape for each entry:
-#
-#   - id:      low | moderate | high
-#     label:   text shown in the UI
-#     min:     lower bound of probability (inclusive)
-#     max:     upper bound (exclusive)
-#     color:   hex, used for the vessel material and the dashboard chip
-#
-# Thresholds are provisional - Person-1 sets the real operating points after
-# calibration, so treat these as placeholders.
+# Colours are provisional placeholders - Person-3 owns them. Ids are read by the ML
+# pipeline, so tell Person-1 before renaming an id.
 
-bands: []
+bands:
+  - id: low
+    label: Low risk
+    color: "#2E9E6A"
+  - id: moderate
+    label: Moderate risk
+    color: "#E0A030"
+  - id: high
+    label: High risk
+    color: "#D64545"

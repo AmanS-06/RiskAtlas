@@ -1,0 +1,119 @@
+{
+ "notes": {
+  "holdout": "Unbiased estimate: these patients were never used for training, model selection or thresholds.",
+  "dev_oof_optimistic": "Out-of-fold predictions from nested CV, but the model family and the threshold were chosen on these same predictions, so these figures are optimistic. Compare against the holdout, do not quote them as the headline result.",
+  "ece": "Expected calibration error with quantile bins. On a holdout of this size each bin holds roughly a dozen patients, so treat it as indicative only; the calibration plots are more informative.",
+  "uncertainty": "Checks whether wider bootstrap intervals mark worse predictions. Part of the effect is that predictions near 0.5 are both less certain and more often wrong."
+ },
+ "targets": {
+  "CAD": {
+   "family": "rf",
+   "threshold": 0.704269400260153,
+   "n": 61,
+   "n_pos": 44,
+   "sensitivity_at_threshold": 0.7272727272727273,
+   "specificity_at_threshold": 0.7058823529411765
+  },
+  "LAD": {
+   "family": "lr",
+   "threshold": 0.4478507674296766,
+   "n": 61,
+   "n_pos": 34,
+   "sensitivity_at_threshold": 0.8235294117647058,
+   "specificity_at_threshold": 0.5185185185185185
+  },
+  "LCX": {
+   "family": "lr",
+   "threshold": 0.38234080304008217,
+   "n": 61,
+   "n_pos": 27,
+   "sensitivity_at_threshold": 0.5555555555555556,
+   "specificity_at_threshold": 0.7058823529411765
+  },
+  "RCA": {
+   "family": "lr",
+   "threshold": 0.3918890912546325,
+   "n": 61,
+   "n_pos": 22,
+   "sensitivity_at_threshold": 0.6363636363636364,
+   "specificity_at_threshold": 0.5897435897435898
+  }
+ },
+ "consistency": {
+  "CAD": {
+   "n": 61,
+   "tolerance": 0.05,
+   "share_below_top_vessel": 0.2459016393442623,
+   "mean_gap_when_below": 0.18136609249450414,
+   "max_gap": 0.38249179564043445
+  }
+ },
+ "decision_curve": {
+  "CAD": {
+   "useful_threshold_range": [
+    0.05,
+    0.95
+   ],
+   "prevalence": 0.7213114754098361
+  },
+  "LAD": {
+   "useful_threshold_range": [
+    0.05,
+    0.95
+   ],
+   "prevalence": 0.5573770491803278
+  },
+  "LCX": {
+   "useful_threshold_range": [
+    0.1,
+    0.8
+   ],
+   "prevalence": 0.4426229508196721
+  },
+  "RCA": {
+   "useful_threshold_range": [
+    0.1,
+    0.85
+   ],
+   "prevalence": 0.36065573770491804
+  }
+ },
+ "uncertainty": {
+  "CAD": {
+   "n": 61,
+   "n_bag": 20,
+   "median_width": 0.1134407040601092,
+   "spearman_width_vs_error": 0.8514542570068746,
+   "p_value": 3.494300942103905e-18,
+   "brier_narrow_half": 0.027741994925323175,
+   "brier_wide_half": 0.29995934707104716
+  },
+  "LAD": {
+   "n": 61,
+   "n_bag": 20,
+   "median_width": 0.18730352859148824,
+   "spearman_width_vs_error": 0.6082496033844526,
+   "p_value": 1.9970930256743956e-07,
+   "brier_narrow_half": 0.15763461042327856,
+   "brier_wide_half": 0.2279894380774713
+  },
+  "LCX": {
+   "n": 61,
+   "n_bag": 20,
+   "median_width": 0.19765491817165187,
+   "spearman_width_vs_error": 0.12887361184558432,
+   "p_value": 0.32224866136900593,
+   "brier_narrow_half": 0.2444050536860144,
+   "brier_wide_half": 0.19504692772325063
+  },
+  "RCA": {
+   "n": 61,
+   "n_bag": 20,
+   "median_width": 0.24110077793137333,
+   "spearman_width_vs_error": 0.42326811210999465,
+   "p_value": 0.0006770423739934031,
+   "brier_narrow_half": 0.18978574604074108,
+   "brier_wide_half": 0.24654254284435811
+  }
+ }
+}

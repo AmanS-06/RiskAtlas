@@ -5,17 +5,80 @@
 #
 # Owner: Person-1 (ML). Tell the team before editing - everyone depends on this.
 #
-# Planned shape for each entry:
+# Fields per entry:
+#   name:     snake_case canonical name used everywhere in the codebase
+#   raw:      exact column name in the Z-Alizadeh Sani spreadsheet
+#   label:    human-readable name for the dashboard and the docs
+#   type:     numeric | binary | categorical
+#   unit:     display unit, or null
+#   range:    [min, max] clinical reference range, or null
+#   group:    demographics | vitals | labs | ecg | echo | symptoms
+#   mutable:  true if a patient could plausibly change it (drives counterfactuals)
+#   anchor:   mesh name this feature is pinned to in the 3D scene, or null (Person-3 fills these)
+#   use:      false keeps the definition but drops the feature from the models
+#   map:      explicit value -> number mapping for text columns
 #
-#   - name:        snake_case canonical name used everywhere in the codebase
-#     raw:         exact column name in the Z-Alizadeh Sani spreadsheet
-#     type:        numeric | binary | categorical
-#     unit:        display unit, or null
-#     range:       [min, max] clinical reference range, or null
-#     group:       demographics | vitals | labs | ecg | echo | symptoms
-#     mutable:     true if a patient could plausibly change it (drives counterfactuals)
-#     anchor:      mesh name this feature is visually pinned to in the 3D scene, or null
+# Defaults when omitted: label = name, type binary, unit null, range null, group symptoms,
+# mutable false, anchor null, use true, map null.
+# Y/N values are mapped to 1/0 automatically for binary features.
+# Units and reference ranges are generic adult values; reports/data_audit_features.csv
+# shows how many patients fall outside each range, as a check on units.
 #
-# Empty until the day-1 data audit.
+# Dropped from the models (use: false): weight and length (BMI covers them),
+# exertional_cp (constant in this dataset).
 
-features: []
+- {name: age, raw: Age, label: Age, type: numeric, unit: years, group: demographics}
+- {name: weight, raw: Weight, label: Weight, type: numeric, unit: kg, group: demographics, use: false}
+- {name: length, raw: Length, label: Height, type: numeric, unit: cm, group: demographics, use: false}
+- {name: sex, raw: Sex, label: Male sex, group: demographics, map: {Male: 1, Fmale: 0}}
+- {name: bmi, raw: BMI, label: Body mass index, type: numeric, unit: kg/m2, range: [18.5, 24.9], group: demographics, mutable: true}
+- {name: dm, raw: DM, label: Diabetes mellitus, group: demographics}
+- {name: htn, raw: HTN, label: Hypertension, group: demographics}
+- {name: current_smoker, raw: Current Smoker, label: Current smoker, group: demographics, mutable: true}
+- {name: ex_smoker, raw: EX-Smoker, label: Ex-smoker, group: demographics}
+- {name: fh, raw: FH, label: Family history of CAD, group: demographics}
+- {name: obesity, raw: Obesity, label: Obesity, group: demographics}
+- {name: crf, raw: CRF, label: Chronic renal failure, group: demographics}
+- {name: cva, raw: CVA, label: Cerebrovascular accident, group: demographics}
+- {name: airway_disease, raw: Airway disease, label: Airway disease, group: demographics}
+- {name: thyroid_disease, raw: Thyroid Disease, label: Thyroid disease, group: demographics}
+- {name: chf, raw: CHF, label: Congestive heart failure, group: demographics}
+- {name: dlp, raw: DLP, label: Dyslipidemia, group: demographics}
+- {name: bp, raw: BP, label: Blood pressure, type: numeric, unit: mmHg, range: [90, 120], group: vitals, mutable: true}
+- {name: pr, raw: PR, label: Pulse rate, type: numeric, unit: bpm, range: [60, 100], group: vitals}
+- {name: edema, raw: Edema, label: Edema, group: vitals}
+- {name: weak_peripheral_pulse, raw: Weak Peripheral Pulse, label: Weak peripheral pulse, group: vitals}
+- {name: lung_rales, raw: Lung rales, label: Lung rales, group: vitals}
+- {name: systolic_murmur, raw: Systolic Murmur, label: Systolic murmur, group: vitals}
+- {name: diastolic_murmur, raw: Diastolic Murmur, label: Diastolic murmur, group: vitals}
+- {name: typical_chest_pain, raw: Typical Chest Pain, label: Typical chest pain}
+- {name: dyspnea, raw: Dyspnea, label: Dyspnea}
+- {name: function_class, raw: Function Class, label: Functional class, type: numeric}
+- {name: atypical, raw: Atypical, label: Atypical chest pain}
+- {name: nonanginal, raw: Nonanginal, label: Non-anginal chest pain}
+- {name: exertional_cp, raw: Exertional CP, label: Exertional chest pain, use: false}
+- {name: lowth_ang, raw: LowTH Ang, label: Low-threshold angina}
+- {name: q_wave, raw: Q Wave, label: Q wave, group: ecg}
+- {name: st_elevation, raw: St Elevation, label: ST elevation, group: ecg}
+- {name: st_depression, raw: St Depression, label: ST depression, group: ecg}
+- {name: t_inversion, raw: Tinversion, label: T-wave inversion, group: ecg}
+- {name: lvh, raw: LVH, label: Left ventricular hypertrophy, group: ecg}
+- {name: poor_r_progression, raw: Poor R Progression, label: Poor R-wave progression, group: ecg}
+- {name: bbb, raw: BBB, label: Bundle branch block, type: categorical, group: ecg, map: {N: 0, LBBB: 1, RBBB: 2}}
+- {name: fbs, raw: FBS, label: Fasting blood sugar, type: numeric, unit: mg/dL, range: [70, 100], group: labs, mutable: true}
+- {name: cr, raw: CR, label: Creatinine, type: numeric, unit: mg/dL, range: [0.6, 1.3], group: labs}
+- {name: tg, raw: TG, label: Triglycerides, type: numeric, unit: mg/dL, range: [0, 150], group: labs, mutable: true}
+- {name: ldl, raw: LDL, label: LDL cholesterol, type: numeric, unit: mg/dL, range: [0, 100], group: labs, mutable: true}
+- {name: hdl, raw: HDL, label: HDL cholesterol, type: numeric, unit: mg/dL, range: [40, 100], group: labs, mutable: true}
+- {name: bun, raw: BUN, label: Blood urea nitrogen, type: numeric, unit: mg/dL, range: [7, 20], group: labs}
+- {name: esr, raw: ESR, label: Erythrocyte sedimentation rate, type: numeric, unit: mm/h, range: [0, 20], group: labs}
+- {name: hb, raw: HB, label: Hemoglobin, type: numeric, unit: g/dL, range: [12, 17.5], group: labs}
+- {name: k, raw: K, label: Potassium, type: numeric, unit: mEq/L, range: [3.5, 5.0], group: labs}
+- {name: na, raw: Na, label: Sodium, type: numeric, unit: mEq/L, range: [135, 145], group: labs}
+- {name: wbc, raw: WBC, label: White blood cell count, type: numeric, unit: cells/mm3, range: [4000, 11000], group: labs}
+- {name: lymph, raw: Lymph, label: Lymphocytes, type: numeric, unit: percent, range: [20, 40], group: labs}
+- {name: neut, raw: Neut, label: Neutrophils, type: numeric, unit: percent, range: [40, 70], group: labs}
+- {name: plt, raw: PLT, label: Platelets, type: numeric, unit: 1000/mm3, range: [150, 450], group: labs}
+- {name: ef_tte, raw: EF-TTE, label: Ejection fraction (echo), type: numeric, unit: percent, range: [55, 70], group: echo}
+- {name: region_rwma, raw: Region RWMA, label: Regional wall motion abnormality, type: categorical, group: echo}
+- {name: vhd, raw: VHD, label: Valvular heart disease, type: numeric, group: echo, map: {N: 0, mild: 1, Moderate: 2, Severe: 3}}

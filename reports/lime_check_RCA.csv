@@ -1,0 +1,11 @@
+patient_id,overlap_at_k,shap_top,lime_top
+179,0.6,"age,typical_chest_pain,dyspnea,function_class,atypical","age,sex,dm,typical_chest_pain,dyspnea"
+228,0.6,"sex,dm,fh,typical_chest_pain,function_class","sex,dm,typical_chest_pain,dyspnea,ef_tte"
+111,1.0,"age,sex,dm,typical_chest_pain,dyspnea","age,sex,dm,typical_chest_pain,dyspnea"
+246,0.6,"sex,dm,cr,tg,bun","sex,dm,typical_chest_pain,function_class,tg"
+60,0.6,"age,dm,typical_chest_pain,atypical,esr","age,sex,dm,typical_chest_pain,dyspnea"
+9,0.8,"sex,dm,typical_chest_pain,dyspnea,function_class","sex,dm,typical_chest_pain,dyspnea,ef_tte"
+119,0.6,"sex,pr,typical_chest_pain,dyspnea,tg","sex,dm,typical_chest_pain,function_class,tg"
+223,0.6,"age,sex,fh,typical_chest_pain,tg","sex,dm,typical_chest_pain,function_class,tg"
+268,0.4,"sex,typical_chest_pain,atypical,tg,region_rwma","sex,dm,typical_chest_pain,dyspnea,function_class"
+33,0.8,"sex,dm,typical_chest_pain,tg,neut","sex,dm,typical_chest_pain,dyspnea,tg"

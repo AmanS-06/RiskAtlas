@@ -1,0 +1,69 @@
+# ml.yaml - ML hyperparameters. Owner: Person-1.
+#
+# This file holds training settings only. Targets, their source columns and the
+# forbidden-feature list live in manifest.yaml; band ids, labels and colours live in
+# risk_bands.yaml. Do not duplicate them here.
+
+seed: 42
+
+data:
+  url: https://archive.ics.uci.edu/static/public/411/extention+of+z+alizadeh+sani+dataset.zip
+  holdout_fraction: 0.2
+
+# protocol:
+#   full_cv  - develop on all patients; performance comes from repeated cross-validation of the
+#              whole procedure (family selection, tuning, calibration, thresholds) in outer folds.
+#              Recommended for small samples (Steyerberg, J Clin Epidemiol 2018: split-sample
+#              validation wastes data and gives pessimistic, highly variable estimates).
+#   holdout  - the original design: a locked 20% holdout scored once by pipeline.evaluate.
+#              Its first and only result is archived in reports/archive/split_sample_v1/.
+# splits/repeats: outer folds for the procedure estimate. selection_repeats: repeats of the
+# family-selection CV inside each outer fold (kept low for speed; the final model uses cv below).
+validation: {protocol: full_cv, splits: 5, repeats: 2, selection_repeats: 1, eval_bag: 10}
+
+# Family-selection CV used to choose and fit the final models.
+cv: {outer_splits: 5, outer_repeats: 3, inner_splits: 3, tune_scoring: roc_auc, one_se_rule: true, n_jobs: -1}
+
+# compress: joblib compression level for saved bundles.
+# max_bundle_mb: GitHub rejects files over 100 MB, and models/ is committed.
+models: {rf_trees: 200, compress: 3, max_bundle_mb: 90}
+
+bootstrap: {n: 2000, ci: 0.95}
+calibration: {method: sigmoid, folds: 3, bins: 5}
+operating_point: {rule_out_sensitivity: 0.95, rule_in_specificity: 0.90}
+
+# n_bag bootstrap refits give the per-prediction interval. If a bundle exceeds
+# max_bundle_mb, the bag is halved (never below min_bag) until it fits.
+uncertainty: {n_bag: 20, min_bag: 5, interval: [0.10, 0.90]}
+
+subgroups:
+  min_n: 15
+  sex: {feature: sex, labels: {1: male, 0: female}}
+  age: {feature: age, edges: [0, 50, 65, 200]}
+
+explain: {background: 50, shap_perms: 5, global_rows: 100, shap_cases: 3, lime_cases: 10, lime_samples: 1000, top_k: 5}
+
+# eval_max_patients: how many high-band development patients pipeline.counterfactual evaluates per target.
+counterfactual: {max_changes: 3, steps: [0.25, 0.5, 0.75, 1.0], eval_max_patients: 50}
+
+# UCI Heart Disease, all four sites (Cleveland, Hungary, Switzerland, VA Long Beach), 920 patients.
+# min_class_n: per-site AUC is only reported when both classes have at least this many patients.
+external:
+  url: https://archive.ics.uci.edu/static/public/45/heart+disease.zip
+  target: CAD
+  family: lr
+  reduced_features: [age, sex, bp, fbs_high, typical_chest_pain, atypical, nonanginal, lvh]
+  min_class_n: 10
+
+# near_constant_share: a binary feature whose minority class is rarer than this is flagged.
+# out_of_range_flag: a feature with more patients outside its reference range than this is flagged
+#   (a likely unit or range mistake in features.yaml rather than a sick cohort).
+audit: {near_constant_share: 0.02, out_of_range_flag: 0.6}
+
+# dca: threshold grid for decision curves. consistency_tolerance: how far P(CAD) may sit below
+# the riskiest vessel before it counts as inconsistent. example_overrides: the illustrative
+# high-risk profile (median patient plus these values) used for reports/example_prediction.json.
+analysis:
+  dca: {start: 0.05, stop: 0.95, step: 0.05}
+  consistency_tolerance: 0.05
+  example_overrides: {age: 65, bp: 160, ldl: 160, fbs: 140, current_smoker: 1, typical_chest_pain: 1, dm: 1}

@@ -1,0 +1,91 @@
+{
+ "data_sha256": "739343245c2ba578b541370217531750d8e936022f928b83e0d91756caa3ff0b",
+ "n_patients": 303,
+ "n_features_defined": 55,
+ "n_features_active": 52,
+ "dropped_features": [
+  "weight",
+  "length",
+  "exertional_cp"
+ ],
+ "raw_missing_cells": 0,
+ "duplicate_patient_rows": 0,
+ "holdout_size": 61,
+ "prevalence": {
+  "CAD": {
+   "all": 0.7128712871287128,
+   "dev": 0.7107438016528925,
+   "holdout": 0.7213114754098361
+  },
+  "LAD": {
+   "all": 0.5841584158415841,
+   "dev": 0.5909090909090909,
+   "holdout": 0.5573770491803278
+  },
+  "LCX": {
+   "all": 0.3927392739273927,
+   "dev": 0.38016528925619836,
+   "holdout": 0.4426229508196721
+  },
+  "RCA": {
+   "all": 0.37623762376237624,
+   "dev": 0.38016528925619836,
+   "holdout": 0.36065573770491804
+  }
+ },
+ "label_consistency": {
+  "vessel_count_distribution": {
+   "0": 86,
+   "1": 87,
+   "2": 67,
+   "3": 63
+  },
+  "CAD": {
+   "positive_without_stenotic_vessel": 0,
+   "stenotic_vessel_without_positive": 1,
+   "patient_ids": [
+    93
+   ]
+  }
+ },
+ "target_correlation": {
+  "CAD": {
+   "CAD": 1.0,
+   "LAD": 0.737,
+   "LCX": 0.51,
+   "RCA": 0.493
+  },
+  "LAD": {
+   "CAD": 0.737,
+   "LAD": 1.0,
+   "LCX": 0.363,
+   "RCA": 0.282
+  },
+  "LCX": {
+   "CAD": 0.51,
+   "LAD": 0.363,
+   "LCX": 1.0,
+   "RCA": 0.394
+  },
+  "RCA": {
+   "CAD": 0.493,
+   "LAD": 0.282,
+   "LCX": 0.394,
+   "RCA": 1.0
+  }
+ },
+ "flags": {
+  "near_constant": [
+   "crf",
+   "cva",
+   "chf",
+   "weak_peripheral_pulse",
+   "lowth_ang"
+  ],
+  "out_of_range": [
+   "bmi",
+   "bp",
+   "ef_tte"
+  ]
+ }
+}

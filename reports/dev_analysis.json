@@ -1,0 +1,46 @@
+{
+ "note": "Computed on out-of-fold development predictions. The model family was chosen on these same predictions, so they are mildly optimistic; pipeline.evaluate repeats this on the holdout.",
+ "consistency": {
+  "CAD": {
+   "n": 303,
+   "tolerance": 0.05,
+   "share_below_top_vessel": 0.0,
+   "mean_gap_when_below": 0.0,
+   "max_gap": -0.0035129604369721
+  }
+ },
+ "decision_curve": {
+  "CAD": {
+   "useful_threshold_range": [
+    0.05,
+    0.95
+   ],
+   "prevalence": 0.7128712871287128
+  },
+  "LAD": {
+   "useful_threshold_range": [
+    0.05,
+    0.9
+   ],
+   "prevalence": 0.5841584158415841
+  },
+  "LCX": {
+   "useful_threshold_range": [
+    0.05,
+    0.7
+   ],
+   "prevalence": 0.3927392739273927
+  },
+  "RCA": {
+   "useful_threshold_range": [
+    0.05,
+    0.65
+   ],
+   "prevalence": 0.37623762376237624
+  }
+ },
+ "latency_ms_median": {
+  "full": 2581.8,
+  "fast": 100.8
+ }
+}

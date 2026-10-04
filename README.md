@@ -17,7 +17,8 @@ explainability dashboard alongside.
 
 ## Status
 
-Scaffold only. No implementation yet. See `docs/` for the plan.
+ML pipeline in place: models, validation, explanations, external validation. Backend and
+frontend in progress. ML results: [docs/ml_results.md](docs/ml_results.md).
 
 ## Live demo
 
@@ -51,9 +52,27 @@ docs/        documentation, architecture diagram, leakage audit
 
 ## Getting started
 
-Not runnable yet. Setup instructions land with the first implementation commit.
-
 Prerequisites: Python 3.11, Node 20.
+
+### ML pipeline
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate             # Windows; on macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+python -m pytest                   # tests that need data or models skip on a fresh clone
+python -m pipeline                 # audit, train, evaluate, explain, external, analysis, counterfactuals, report
+```
+
+The dataset downloads automatically into `data/raw/`. A full run takes roughly 15 minutes on a
+recent laptop, most of it in training: performance is estimated by rerunning the whole modelling
+procedure inside cross-validation. Results: [docs/ml_results.md](docs/ml_results.md).
+
+Methods: [docs/ml_methods.md](docs/ml_methods.md). Leakage audit:
+[docs/leakage_audit.md](docs/leakage_audit.md). Interface for the API and frontend:
+[docs/ml_interface.md](docs/ml_interface.md).
+
+Backend and frontend setup will be added here as they land.
 
 ## Team
 

@@ -1,0 +1,11 @@
+patient_id,overlap_at_k,shap_top,lime_top
+179,0.8,"age,typical_chest_pain,dyspnea,atypical,vhd","age,htn,typical_chest_pain,dyspnea,vhd"
+228,0.4,"htn,fh,typical_chest_pain,function_class,ldl","htn,typical_chest_pain,dyspnea,ef_tte,region_rwma"
+111,1.0,"age,typical_chest_pain,dyspnea,ef_tte,vhd","age,typical_chest_pain,dyspnea,ef_tte,vhd"
+246,0.6,"typical_chest_pain,t_inversion,fbs,tg,ef_tte","htn,typical_chest_pain,tg,ef_tte,region_rwma"
+60,0.4,"age,htn,bp,typical_chest_pain,atypical","age,dm,typical_chest_pain,ef_tte,region_rwma"
+9,0.4,"dm,typical_chest_pain,bbb,ef_tte,region_rwma","htn,typical_chest_pain,dyspnea,tg,ef_tte"
+119,0.6,"pr,typical_chest_pain,tg,ef_tte,vhd","typical_chest_pain,t_inversion,tg,region_rwma,vhd"
+223,0.4,"age,fh,typical_chest_pain,t_inversion,vhd","dm,typical_chest_pain,tg,region_rwma,vhd"
+268,0.6,"htn,typical_chest_pain,atypical,tg,region_rwma","dm,typical_chest_pain,atypical,bbb,tg"
+33,0.6,"dm,htn,typical_chest_pain,tg,region_rwma","htn,typical_chest_pain,dyspnea,tg,ef_tte"

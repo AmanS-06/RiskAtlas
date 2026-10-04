@@ -1,29 +1,59 @@
-# manifest.yaml - maps each prediction target to its mesh, feature set and model file.
+# manifest.yaml - maps each prediction target to its source column, mesh and model file.
 #
 # This is what makes "add a vessel, feature or model without a redesign" true, which
 # the problem statement lists as a technical requirement. Adding a fourth vessel should
 # be an edit to this file, not a code change.
 #
 # Owner: Person-2 (backend). Mesh names must match Person-3's .glb node names exactly.
+# The ML pipeline reads targets and forbidden_features from here - there is no second copy.
 #
 # Target names are uppercase and fixed: CAD, LAD, LCX, RCA.
 #
-# Planned shape for each entry:
-#
-#   TARGET:
-#     label:     human-readable name for the UI
-#     mesh:      exact node name in the .glb (null for CAD, which is not one vessel)
-#     features:  which feature set to use, or "all"
-#     model:     path under models/
-#
-# Empty until models and meshes exist.
+# Fields per target:
+#   label:     human-readable name for the UI
+#   mesh:      exact node name in the .glb (null for CAD, which is not one vessel)
+#   raw:       column in the Z-Alizadeh Sani spreadsheet that holds the label
+#   positive:  value in that column that means "positive"
+#   model:     file name under models/
+#   conditional_on: optional parent target. The model becomes P(parent) * P(target | parent),
+#              which guarantees P(target) <= P(parent). Used for the vessels: CAD means at least
+#              one stenotic vessel. The parent must be listed before its children.
 
-targets: {}
+targets:
+  CAD:
+    label: Overall CAD
+    mesh: null
+    raw: Cath
+    positive: CAD
+    model: CAD.joblib
+  LAD:
+    label: Left anterior descending
+    mesh: LAD
+    raw: LAD
+    positive: Stenotic
+    model: LAD.joblib
+    conditional_on: CAD
+  LCX:
+    label: Left circumflex
+    mesh: LCX
+    raw: LCX
+    positive: Stenotic
+    model: LCX.joblib
+    conditional_on: CAD
+  RCA:
+    label: Right coronary artery
+    mesh: RCA
+    raw: RCA
+    positive: Stenotic
+    model: RCA.joblib
+    conditional_on: CAD
 
-# Features excluded from ALL model inputs to prevent target leakage.
-# Required by the problem statement. Enforced by a test - do not edit casually.
+# Excluded from ALL model inputs to prevent target leakage. Required by the problem
+# statement and by the dataset authors. Target names and raw label columns above are
+# also forbidden automatically. Enforced by tests - do not edit casually.
 forbidden_features:
   - LAD
   - LCX
   - RCA
   - Cath
+  - CAD

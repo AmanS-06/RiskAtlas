@@ -1,0 +1,126 @@
+{
+ "note": "Model-based what-if. It describes associations in the training data, not proven effects of treatment. Evaluated on development patients the model was trained on, so this describes the model's behaviour, not out-of-sample performance.",
+ "targets": {
+  "CAD": {
+   "n_dev": 303,
+   "n_high_band": 180,
+   "n_evaluated": 50,
+   "achieved_share": 0.06,
+   "mean_changes_when_achieved": 1.0,
+   "most_changed": [
+    {
+     "feature": "fbs",
+     "label": "Fasting blood sugar",
+     "count": 2
+    },
+    {
+     "feature": "tg",
+     "label": "Triglycerides",
+     "count": 1
+    }
+   ]
+  },
+  "LAD": {
+   "n_dev": 303,
+   "n_high_band": 118,
+   "n_evaluated": 50,
+   "achieved_share": 0.14,
+   "mean_changes_when_achieved": 1.5714285714285714,
+   "most_changed": [
+    {
+     "feature": "tg",
+     "label": "Triglycerides",
+     "count": 4
+    },
+    {
+     "feature": "fbs",
+     "label": "Fasting blood sugar",
+     "count": 3
+    },
+    {
+     "feature": "ldl",
+     "label": "LDL cholesterol",
+     "count": 2
+    },
+    {
+     "feature": "current_smoker",
+     "label": "Current smoker",
+     "count": 1
+    },
+    {
+     "feature": "bp",
+     "label": "Blood pressure",
+     "count": 1
+    }
+   ]
+  },
+  "LCX": {
+   "n_dev": 303,
+   "n_high_band": 58,
+   "n_evaluated": 50,
+   "achieved_share": 0.34,
+   "mean_changes_when_achieved": 1.2941176470588236,
+   "most_changed": [
+    {
+     "feature": "tg",
+     "label": "Triglycerides",
+     "count": 7
+    },
+    {
+     "feature": "fbs",
+     "label": "Fasting blood sugar",
+     "count": 7
+    },
+    {
+     "feature": "bp",
+     "label": "Blood pressure",
+     "count": 6
+    },
+    {
+     "feature": "current_smoker",
+     "label": "Current smoker",
+     "count": 1
+    },
+    {
+     "feature": "ldl",
+     "label": "LDL cholesterol",
+     "count": 1
+    }
+   ]
+  },
+  "RCA": {
+   "n_dev": 303,
+   "n_high_band": 36,
+   "n_evaluated": 36,
+   "achieved_share": 0.3611111111111111,
+   "mean_changes_when_achieved": 1.2307692307692308,
+   "most_changed": [
+    {
+     "feature": "tg",
+     "label": "Triglycerides",
+     "count": 5
+    },
+    {
+     "feature": "current_smoker",
+     "label": "Current smoker",
+     "count": 4
+    },
+    {
+     "feature": "bp",
+     "label": "Blood pressure",
+     "count": 3
+    },
+    {
+     "feature": "bmi",
+     "label": "Body mass index",
+     "count": 2
+    },
+    {
+     "feature": "fbs",
+     "label": "Fasting blood sugar",
+     "count": 2
+    }
+   ]
+  }
+ }
+}

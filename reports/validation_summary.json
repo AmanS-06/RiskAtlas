@@ -1,0 +1,139 @@
+{
+ "protocol": "full_cv",
+ "notes": {
+  "ece": "Expected calibration error with quantile bins. At this sample size each bin holds few patients, so treat it as indicative only; the calibration plots are more informative.",
+  "uncertainty": "Checks whether wider bootstrap intervals mark worse predictions. Part of the effect is that predictions near 0.5 are both less certain and more often wrong.",
+  "estimate": "Repeated cross-validation of the whole modelling procedure on all patients. In every outer fold, family selection, tuning, calibration and thresholds were redone on the training part only and applied to the held-out patients, so the estimate is not biased by model selection (Varma and Simon, 2006). Recommended over a single split at this sample size (Steyerberg, 2018).",
+  "classification": "Accuracy, precision, sensitivity, specificity and F1 use the threshold chosen inside each outer fold."
+ },
+ "targets": {
+  "CAD": {
+   "kind": "direct",
+   "family": "lr",
+   "n": 303,
+   "n_pos": 216,
+   "repeats": 2,
+   "family_choices_in_outer_folds": {
+    "rf": 2,
+    "lr": 8
+   },
+   "sensitivity": 0.8171296296296297,
+   "specificity": 0.8563218390804597
+  },
+  "LAD": {
+   "kind": "conditional",
+   "family": "lr",
+   "n": 303,
+   "n_pos": 177,
+   "repeats": 2,
+   "family_choices_in_outer_folds": {
+    "lr": 9,
+    "xgb": 1
+   },
+   "sensitivity": 0.788135593220339,
+   "specificity": 0.6904761904761905
+  },
+  "LCX": {
+   "kind": "conditional",
+   "family": "lr",
+   "n": 303,
+   "n_pos": 119,
+   "repeats": 2,
+   "family_choices_in_outer_folds": {
+    "rf": 4,
+    "lr": 6
+   },
+   "sensitivity": 0.7815126050420168,
+   "specificity": 0.529891304347826
+  },
+  "RCA": {
+   "kind": "conditional",
+   "family": "lr",
+   "n": 303,
+   "n_pos": 114,
+   "repeats": 2,
+   "family_choices_in_outer_folds": {
+    "lr": 10
+   },
+   "sensitivity": 0.7982456140350878,
+   "specificity": 0.5502645502645502
+  }
+ },
+ "consistency": {
+  "CAD": {
+   "n": 303,
+   "tolerance": 0.05,
+   "share_below_top_vessel": 0.0,
+   "mean_gap_when_below": 0.0,
+   "max_gap": -0.0091297125418859
+  }
+ },
+ "decision_curve": {
+  "CAD": {
+   "useful_threshold_range": [
+    0.05,
+    0.95
+   ],
+   "prevalence": 0.7128712871287128
+  },
+  "LAD": {
+   "useful_threshold_range": [
+    0.05,
+    0.9
+   ],
+   "prevalence": 0.5841584158415841
+  },
+  "LCX": {
+   "useful_threshold_range": [
+    0.05,
+    0.6
+   ],
+   "prevalence": 0.3927392739273927
+  },
+  "RCA": {
+   "useful_threshold_range": [
+    0.05,
+    0.7
+   ],
+   "prevalence": 0.37623762376237624
+  }
+ },
+ "uncertainty": {
+  "CAD": {
+   "n_bag": 10,
+   "n": 303,
+   "median_width": 0.15880490470109326,
+   "spearman_width_vs_error": 0.8447392578226104,
+   "p_value": 1.0303754862723888e-83,
+   "brier_narrow_half": 0.03764056717330916,
+   "brier_wide_half": 0.15992011690660257
+  },
+  "LAD": {
+   "n_bag": 10,
+   "n": 303,
+   "median_width": 0.1626614567885497,
+   "spearman_width_vs_error": 0.49672195783537915,
+   "p_value": 2.771741346962022e-20,
+   "brier_narrow_half": 0.11018688676780422,
+   "brier_wide_half": 0.2045808009461142
+  },
+  "LCX": {
+   "n_bag": 10,
+   "n": 303,
+   "median_width": 0.17058458288532374,
+   "spearman_width_vs_error": 0.19000738519303306,
+   "p_value": 0.0008870405416538085,
+   "brier_narrow_half": 0.18128279618896784,
+   "brier_wide_half": 0.22109051167016797
+  },
+  "RCA": {
+   "n_bag": 10,
+   "n": 303,
+   "median_width": 0.16748043550182154,
+   "spearman_width_vs_error": 0.24766624449130167,
+   "p_value": 1.292218965527024e-05,
+   "brier_narrow_half": 0.17638730288676277,
+   "brier_wide_half": 0.21695692854344012
+  }
+ }
+}
