@@ -1,0 +1,14 @@
+[
+ {
+  "id": "demo-C-low-ef-rwma",
+  "label": "Case C edited: ejection fraction 35, wall motion abnormality 3",
+  "summary": "Illustrative case C with two fields changed (ejection fraction 50 to 35, regional wall motion abnormality code 0 to 3). Not a real patient.",
+  "values": {"age": 65, "sex": 1, "bmi": 26.78, "dm": 1, "htn": 1, "current_smoker": 1, "ex_smoker": 0, "fh": 0, "obesity": 1, "crf": 0, "cva": 0, "airway_disease": 0, "thyroid_disease": 0, "chf": 0, "dlp": 0, "bp": 160, "pr": 70, "edema": 0, "weak_peripheral_pulse": 0, "lung_rales": 0, "systolic_murmur": 0, "diastolic_murmur": 0, "typical_chest_pain": 1, "dyspnea": 0, "function_class": 0, "atypical": 0, "nonanginal": 0, "lowth_ang": 0, "q_wave": 0, "st_elevation": 0, "st_depression": 0, "t_inversion": 0, "lvh": 0, "poor_r_progression": 0, "bbb": 0, "fbs": 140, "cr": 1, "tg": 122, "ldl": 160, "hdl": 39, "bun": 16, "esr": 15, "hb": 13.2, "k": 4.2, "na": 141, "wbc": 7100, "lymph": 32, "neut": 60, "plt": 210, "ef_tte": 35, "region_rwma": 3, "vhd": 1}
+ },
+ {
+  "id": "demo-D-LAD-dominant",
+  "label": "Illustrative case D (optional): LAD high, LCX and RCA moderate",
+  "summary": "55-year-old woman, hypertension, family history, typical chest pain, dyspnea, ejection fraction 35, wall motion abnormality 3, ST depression and T-wave inversion (partial record). Not a real patient.",
+  "values": {"age": 55, "sex": 0, "bmi": 26, "dm": 0, "htn": 1, "current_smoker": 0, "ex_smoker": 0, "fh": 1, "dlp": 0, "bp": 140, "pr": 80, "typical_chest_pain": 1, "atypical": 0, "nonanginal": 0, "dyspnea": 1, "st_depression": 1, "t_inversion": 1, "fbs": 95, "tg": 150, "ldl": 140, "hdl": 45, "hb": 13.5, "ef_tte": 35, "region_rwma": 3, "vhd": 0}
+ }
+]
