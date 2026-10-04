@@ -17,8 +17,8 @@ explainability dashboard alongside.
 
 ## Status
 
-ML pipeline in place: models, validation, explanations, external validation. Backend and
-frontend in progress. ML results: [docs/ml_results.md](docs/ml_results.md).
+ML pipeline and backend API in place: models, validation, explanations, external validation, FastAPI
+endpoints with a mock mode. Frontend in progress. ML results: [docs/ml_results.md](docs/ml_results.md).
 
 ## Live demo
 
@@ -72,7 +72,22 @@ Methods: [docs/ml_methods.md](docs/ml_methods.md). Leakage audit:
 [docs/leakage_audit.md](docs/leakage_audit.md). Interface for the API and frontend:
 [docs/ml_interface.md](docs/ml_interface.md).
 
-Backend and frontend setup will be added here as they land.
+### Backend (API)
+
+```bash
+pip install -r requirements.txt     # the same environment as above
+uvicorn api.main:app --reload       # http://127.0.0.1:8000, interactive docs at /docs
+API_MOCK=1 uvicorn api.main:app --reload   # fixed example payload, no models needed (every response says "mock": true)
+python -m pytest tests/test_api.py
+```
+
+Endpoints: `GET /health`, `GET /meta`, `POST /predict` (full payload, about 4 s), `POST /predict/fast`
+(probabilities only, about 0.13 s, for live sliders). Start-up with the real models takes about 15 s.
+Set `API_CORS_ORIGINS` to the frontend URL when it is not `http://localhost:5173`. Full reference,
+real examples, error codes and frontend usage: [docs/api.md](docs/api.md). Issues found in the ML code
+while building it: [docs/backend_findings.md](docs/backend_findings.md).
+
+Frontend setup will be added here as it lands.
 
 ## Team
 
