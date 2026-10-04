@@ -76,6 +76,11 @@ spelling when linking or citing.
   `RCA` = right coronary artery + its right inferolateral branch), each with its own single material; the left
   main stem `left_coronary_artery` kept as a separate, unscored node; the extraction's per-artery colours replaced
   by one neutral grey; licence text added to the glTF `asset.copyright` field.
+- **Re-verified on 2026-10-04.** The npm tarball has the sha256 above; running the committed extraction script
+  (`web/scripts/source/extract_heart_from_svitylo.mjs`) on it reproduces both source `.glb` files byte for byte
+  (sha256 `cdb91627e81af3054f51239d04fa914a43a0d6757834594305caa1d488ec8805` and
+  `649fb9d7f70f64aeb53fdeb49dbca2962e6e81ae8388f829b5dbf818b22e3ba4`), and the licence files kept here are identical to
+  the ones inside the tarball.
 - **Upstream licence files** are kept in `web/public/models3d/licence/` (the packager's `LICENSES.md` and
   `ATTRIBUTION.md`, and its `package.json`). The extraction and build inputs are in `web/scripts/source/`.
 - **ShareAlike implication.** The two `.glb` files are adapted material, so they stay under CC BY-SA 4.0:
