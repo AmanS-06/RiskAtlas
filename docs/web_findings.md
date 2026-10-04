@@ -50,9 +50,11 @@ The About panel shows what `/meta` serves: patients trained on, validation proto
 
 `features.yaml` `range` is a clinical reference range, `/meta` says "not a slider bound". The form needs bounds for validation and for sliders, so it derives them from `/meta.features[].stats`: values must lie within the training range widened by its own width on each side (never below 0 when the training minimum is not negative), and a value outside the training range itself gets a warning that the estimate extrapolates. Sliders (modifiable numeric features only) span the training min to max. If the team wants clinically motivated hard limits, add `min`/`max` to `features.yaml`.
 
-## 7. The vessel colouring API has no "clear" operation
+## 7. Viewer contract: clearing a vessel is not in the agreed interface
 
-`HeartViewer.setVessels` takes a `Partial` record and `setOverall(null)` clears the overall state, but there is no way to clear a vessel back to "no prediction". On Reset the app sets every vessel to a neutral colour with `uncertaintyWidth: 1` (token `--viewer-neutral`). A `setVessels(null)` or `clearVessels()` would be cleaner.
+The agreed `HeartViewer` interface has no way to clear a vessel back to "no prediction" (`setVessels` takes a `Partial`). The viewer track's implementation does support it: `setVessels({ LAD: undefined })` resets that vessel to neutral. The dashboard relies on that (used on Reset, and for vessels without a result); the placeholder viewer does the same. The interface description should say so, otherwise another viewer implementation could ignore it.
+
+Also: the viewer sources do not compile with `noUncheckedIndexedAccess`, so `web/tsconfig.json` leaves that option off (plain `strict` is on).
 
 ## 8. Routes have no `/api` prefix
 

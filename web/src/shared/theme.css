@@ -54,7 +54,6 @@
   /* 3D stage */
   --viewer-bg: #e6edf5;
   --viewer-text: #121c28;
-  --viewer-neutral: #9aa8b8; /* vessels with no prediction yet */
 
   /* colour-blind-safe alternative ramp, lowest risk first: light blue, amber, crimson (lightness falls as risk rises) */
   --safe-band-0: #b4e4fa;
@@ -112,7 +111,6 @@
     --interval: #e9eff6;
     --viewer-bg: #0a1018;
     --viewer-text: #e9eff6;
-    --viewer-neutral: #566a80;
     --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 2px 8px rgb(0 0 0 / 30%);
   }
 }
@@ -151,6 +149,5 @@
   --interval: #e9eff6;
   --viewer-bg: #0a1018;
   --viewer-text: #e9eff6;
-  --viewer-neutral: #566a80;
   --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 2px 8px rgb(0 0 0 / 30%);
 }

@@ -90,10 +90,18 @@ export class HeartViewer {
     this.loaded = true;
   }
 
-  setVessels(states: Partial<Record<VesselId, VesselState>>): void {
-    for (const [id, st] of Object.entries(states) as [VesselId, VesselState][]) {
+  setVessels(states: Partial<Record<VesselId, VesselState | undefined>>): void {
+    for (const [id, st] of Object.entries(states) as [VesselId, VesselState | undefined][]) {
       const p = this.vessels.get(id);
-      if (!p || !st) continue;
+      if (!p) continue;
+      if (!st) {
+        // an explicit undefined clears the vessel back to neutral, as the real viewer does
+        p.setAttribute('stroke', 'currentColor');
+        p.setAttribute('stroke-opacity', '0.4');
+        p.removeAttribute('data-band');
+        p.removeAttribute('data-probability');
+        continue;
+      }
       p.setAttribute('stroke', st.color);
       p.setAttribute('stroke-opacity', String(1 - Math.min(0.6, st.uncertaintyWidth ?? 0)));
       p.setAttribute('data-band', st.band);

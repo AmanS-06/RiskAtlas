@@ -14,7 +14,7 @@ interface Call {
 }
 
 /** A provider whose replies the test releases by hand, to control ordering. */
-function manual() {
+function manual(honourAbort = true) {
   const calls: Call[] = [];
   const provider: ApiProvider = {
     kind: 'mock',
@@ -29,7 +29,7 @@ function manual() {
           reject: rej,
         };
         calls.push(call);
-        signal?.addEventListener('abort', () => rej(new ApiError('aborted', 'cancelled')));
+        if (honourAbort) signal?.addEventListener('abort', () => rej(new ApiError('aborted', 'cancelled')));
       }),
   };
   return { provider, calls };
@@ -41,8 +41,8 @@ describe('LivePredictor', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  function setup(opts = {}) {
-    const m = manual();
+  function setup(opts = {}, honourAbort = true) {
+    const m = manual(honourAbort);
     const log = { fast: [] as number[], full: [] as number[], errors: [] as string[] };
     const live = new LivePredictor(
       m.provider,
@@ -110,8 +110,8 @@ describe('LivePredictor', () => {
     expect(log.fast).toEqual([2]);
   });
 
-  it('drops an older fast reply that arrives after a newer one was applied (no abort involved)', async () => {
-    const { live, calls, log } = setup();
+  it('drops an older fast reply that arrives after a newer one was applied (transport ignores abort)', async () => {
+    const { live, calls, log } = setup({}, false);
     live.preview({ bp: 1 });
     await vi.advanceTimersByTimeAsync(160);
     const first = calls[0]!;
@@ -137,8 +137,8 @@ describe('LivePredictor', () => {
     expect(calls.length).toBe(2); // the pending preview was cancelled, not sent
   });
 
-  it('a full reply is shown only if nothing newer was entered since', async () => {
-    const { live, calls, log } = setup();
+  it('a full reply is shown only if nothing newer was entered since (transport ignores abort)', async () => {
+    const { live, calls, log } = setup({}, false);
     live.commit({ bp: 3 });
     live.preview({ bp: 4 }); // user moves a slider again while the full request runs
     expect(calls[0]?.signal.aborted).toBe(true); // a stale full is cancelled
@@ -148,7 +148,7 @@ describe('LivePredictor', () => {
   });
 
   it('a late full reply for older inputs is dropped even if the transport ignores abort', async () => {
-    const { live, calls, log } = setup();
+    const { live, calls, log } = setup({}, false);
     live.commit({ bp: 3 });
     const staleFull = calls[0]!;
     live.commit({ bp: 5 });
@@ -160,7 +160,7 @@ describe('LivePredictor', () => {
   });
 
   it('does not apply a fast reply once a full reply for the same or newer inputs is shown', async () => {
-    const { live, calls, log } = setup();
+    const { live, calls, log } = setup({}, false);
     live.preview({ bp: 1 });
     await vi.advanceTimersByTimeAsync(160);
     const fast = calls[0]!;

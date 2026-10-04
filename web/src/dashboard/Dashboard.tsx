@@ -25,13 +25,6 @@ export function Dashboard() {
   const [tab, setTab] = useState('inputs');
   const { meta } = d;
 
-  const neutral = useMemo(
-    () => (typeof document === 'undefined' ? '#888888' : getComputedStyle(document.documentElement).getPropertyValue('--viewer-neutral').trim() || '#888888'),
-    // the token changes with the theme
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [d.theme],
-  );
-
   const applyChanges = useCallback(
     (changes: Counterfactual['changes']) => {
       changes.forEach((c, i) => d.setField(c.feature, String(c.to), i === changes.length - 1 ? 'commit' : 'none'));
@@ -107,14 +100,7 @@ export function Dashboard() {
         <main className="workspace" id="main">
           <div className="stage">
             <section aria-label="3D risk map" className="panel stage-viewer">
-              <ViewerCanvas
-                vessels={viewerVessels}
-                overall={viewerOverall}
-                selectedMesh={selectedMesh}
-                onSelectMesh={onSelectMesh}
-                neutral={neutral}
-                meshNames={meshNames}
-              />
+              <ViewerCanvas vessels={viewerVessels} overall={viewerOverall} selectedMesh={selectedMesh} onSelectMesh={onSelectMesh} meshNames={meshNames} />
             </section>
             <ResultsPanel
               meta={meta}
