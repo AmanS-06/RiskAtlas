@@ -58,7 +58,7 @@ describe('ViewerCanvas', () => {
     await waitFor(() => expect(screen.getByTestId('viewer')).toHaveAttribute('data-ready', 'true'));
     expect(latest().opts.modelUrl).toMatch(/models3d\/heart\.glb$/);
     expect(latest().opts.liteModelUrl).toMatch(/models3d\/heart_lite\.glb$/);
-    expect(latest().vessels.LAD?.color).toBe('#d64545');
+    await waitFor(() => expect(latest().vessels.LAD?.color).toBe('#d64545')); // painted by an effect that runs right after data-ready flips
     expect('LCX' in latest().vessels && latest().vessels.LCX === undefined).toBe(true);
     expect('RCA' in latest().vessels && latest().vessels.RCA === undefined).toBe(true);
     expect(latest().overall).toEqual({ probability: 0.9, band: 'high', color: '#d64545' });

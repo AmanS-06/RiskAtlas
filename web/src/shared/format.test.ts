@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatUnit, num, pct, pp, pts, withUnit } from './format';
+import { formatUnit, fullPredictionStatus, num, pct, pp, pts, withUnit } from './format';
 
 describe('format', () => {
   it('formats units from config strings', () => {
@@ -26,5 +26,13 @@ describe('format', () => {
     expect(num(160)).toBe('160');
     expect(withUnit(160, 'mmHg')).toBe('160 mmHg');
     expect(withUnit(32, 'percent')).toBe('32%');
+  });
+  it('reports the latency of a fresh full prediction and flags a cached one instead of printing 0 ms', () => {
+    expect(fullPredictionStatus(3812.4, false)).toBe('Full prediction in 3812 ms.');
+    expect(fullPredictionStatus(3812.4, undefined)).toBe('Full prediction in 3812 ms.');
+    expect(fullPredictionStatus(0.07, true)).toBe('Full prediction (cached answer, no new model run).');
+    expect(fullPredictionStatus(0.07, undefined)).toBe('Full prediction in under 1 ms.');
+    expect(fullPredictionStatus(0, undefined)).toBe('Full prediction.');
+    expect(fullPredictionStatus(undefined, undefined)).toBe('Full prediction.');
   });
 });

@@ -6,8 +6,8 @@ export const DISCLAIMER =
 export const MOCK_LABEL = 'MOCK DATA - not a real prediction';
 
 export const CAVEATS = {
-  perVessel:
-    'Predictions are made per vessel (and for overall CAD). The 3D view is a schematic risk map: it colours whole vessels and does not locate lesions within a vessel.',
+  perVessel: 'Predictions are made per vessel (and for overall CAD), each with its own model and cut points.',
+  schematic: 'The 3D view is a schematic risk map: it colours whole vessels and does not locate lesions within a vessel.',
   cohort:
     'The models were trained on a small single-centre dataset of patients referred for coronary angiography, so they may not transfer to other populations.',
 } as const;

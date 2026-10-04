@@ -35,7 +35,7 @@ export class HttpProvider implements ApiProvider {
   predict<M extends PredictMode>(mode: M, inputs: Inputs, signal?: AbortSignal): Promise<Predict<M>> {
     // The API takes a flat dict of canonical names to numbers (docs/ml_interface.md section 2); blank means absent.
     const body = Object.fromEntries(Object.entries(inputs).filter(([, v]) => v !== null && Number.isFinite(v)));
-    return this.request<Predict<M>>('POST', PATHS[mode], body, this.timeouts[mode], signal, (j) => checkPrediction(j, mode));
+    return this.request<Predict<M>>('POST', PATHS[mode], body, this.timeouts[mode], signal, (j) => checkPrediction(j, mode), markCached);
   }
 
   private async request<T>(
@@ -45,6 +45,7 @@ export class HttpProvider implements ApiProvider {
     timeoutMs: number,
     external: AbortSignal | undefined,
     check: (json: unknown) => void,
+    annotate?: (json: unknown, res: Response) => void,
   ): Promise<T> {
     const ctl = new AbortController();
     let timedOut = false;
@@ -83,12 +84,23 @@ export class HttpProvider implements ApiProvider {
       } catch (e) {
         throw new ApiError('bad_response', e instanceof Error ? e.message : 'Unexpected reply.', { status: res.status });
       }
+      annotate?.(json, res);
       return json as T;
     } finally {
       clearTimeout(timer);
       external?.removeEventListener('abort', onExternal);
     }
   }
+}
+
+/**
+ * The API stamps every prediction with `X-Cache: HIT|MISS` (api/main.py, exposed to browsers through CORS). On a hit it also
+ * overwrites `timing_ms.total` with the time spent copying the cached answer (a fraction of a millisecond), so the originally
+ * measured latency is not available. The client records the header as `cached` and never infers it from the timings.
+ */
+function markCached(json: unknown, res: Response): void {
+  const xc = res.headers.get('X-Cache');
+  if (xc && isObj(json)) json.cached = xc.toUpperCase() === 'HIT';
 }
 
 /** Maps the API's error envelope {"error": {code, message, details}} (api/main.py) and HTTP status to an ApiError. */

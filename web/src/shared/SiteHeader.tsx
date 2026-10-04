@@ -1,3 +1,5 @@
+import { useRef } from 'react';
+import { useCssHeight } from './useCssHeight';
 import type { PaletteMode } from './palette';
 import { MOCK_LABEL } from './constants';
 
@@ -14,8 +16,10 @@ const NEXT = { system: 'light', light: 'dark', dark: 'system' } as const;
 const THEME_LABEL = { system: 'System', light: 'Light', dark: 'Dark' } as const;
 
 export function SiteHeader({ mock, onLive, palette, onPalette, theme, onTheme }: Props) {
+  const ref = useRef<HTMLElement>(null);
+  useCssHeight(ref, '--header-h'); // the sticky viewer column is sized to what is left of the screen below banner and header
   return (
-    <header className="site-header">
+    <header ref={ref} className="site-header">
       <div className="brand">
         <h1>RiskAtlas</h1>
         <p>Coronary risk map and explainable dashboard</p>

@@ -3,7 +3,7 @@ import type { ApiError, FastPrediction, FullPrediction, Meta, TargetMeta } from 
 import { errorTitle } from '../api';
 import { DisclaimerNote } from '../shared/Disclaimer';
 import { CAVEATS, MOCK_LABEL } from '../shared/constants';
-import { pct, pp, pts } from '../shared/format';
+import { fullPredictionStatus, pct, pp, pts } from '../shared/format';
 import { findBand, segments, type BandInfo } from '../shared/palette';
 import { BandChip, RiskBar, RiskGauge } from './risk';
 
@@ -40,11 +40,21 @@ export function ResultsPanel(p: ResultsProps) {
   const coherence = p.overall && prediction ? prediction.coherence[p.overall.id] : undefined;
   const [lo, hi] = meta.uncertainty_interval;
   const ordinal = (q: number) => `${Math.round(q * 100)}th`;
+  const coherenceFailed = !!coherence?.below_top_vessel; // a failed check is a warning and stays on screen; a passed one sits in the notes below
 
   return (
     <section className="panel results" aria-labelledby="results-title" data-testid="results-panel">
       <div className="panel-head">
         <h2 id="results-title">Predicted risk</h2>
+        {prediction && (
+          <p className="status-line" data-testid="status-line" data-cached={prediction.cached ? 'true' : undefined}>
+            {p.kind === 'preview'
+              ? 'Live preview (fast model). Intervals and explanation refresh on release.'
+              : p.busy.full
+                ? 'Refreshing the full explanation.'
+                : fullPredictionStatus(prediction.timing_ms?.total, prediction.cached)}
+          </p>
+        )}
         {(prediction?.mock || meta.mock) && (
           <span className="mock-chip small" data-testid="mock-flag">
             {MOCK_LABEL}
@@ -92,14 +102,6 @@ export function ResultsPanel(p: ResultsProps) {
         </p>
       ) : (
         <>
-          <p className="status-line" data-testid="status-line">
-            {p.kind === 'preview'
-              ? 'Live preview from the fast model path. Intervals, explanation and what-if refresh when you release the control.'
-              : p.busy.full
-                ? 'Refreshing the full explanation.'
-                : `Full prediction${prediction.timing_ms?.total ? ` in ${Math.round(prediction.timing_ms.total)} ms` : ''}.`}
-          </p>
-
           <ul className="target-list">
             {rows.map((t) => {
               const resp = prediction.targets[t.id];
@@ -159,10 +161,6 @@ export function ResultsPanel(p: ResultsProps) {
                   </li>
                 ))}
               </ul>
-              <p className="hint">
-                Cut points belong to this target and differ between targets. Decision threshold {pct(selResp.threshold)}. Interval: {ordinal(lo)} to{' '}
-                {ordinal(hi)} percentile of refitted models; the point estimate can sit outside it.
-              </p>
             </div>
           )}
 
@@ -176,14 +174,25 @@ export function ResultsPanel(p: ResultsProps) {
           )}
           {prediction.input.ignored.length > 0 && <p className="hint">Ignored inputs: {prediction.input.ignored.join(', ')}.</p>}
 
-          {coherence && p.overall && <Coherence coherence={coherence} meta={meta} overall={p.overall} />}
+          {coherenceFailed && coherence && p.overall && <Coherence coherence={coherence} meta={meta} overall={p.overall} />}
         </>
       )}
 
       <div className="panel-foot">
-        <p className="caveat">{CAVEATS.perVessel}</p>
-        <p className="caveat">{CAVEATS.cohort}</p>
-        <DisclaimerNote />
+        <p className="caveat">{CAVEATS.schematic}</p>
+        <details className="note-details foot-more">
+          <summary>Cut points, consistency check, data limits, clinical safety</summary>
+          {prediction && selMeta && selResp && (
+            <p className="caveat" data-testid="cutpoint-note">
+              Cut points belong to each target and differ between targets. Decision threshold for {selMeta.label}: {pct(selResp.threshold)}. Interval:{' '}
+              {ordinal(lo)} to {ordinal(hi)} percentile of refitted models; the point estimate can sit outside it.
+            </p>
+          )}
+          {!coherenceFailed && coherence && p.overall && <Coherence coherence={coherence} meta={meta} overall={p.overall} />}
+          <p className="caveat">{CAVEATS.perVessel}</p>
+          <p className="caveat">{CAVEATS.cohort}</p>
+          <DisclaimerNote />
+        </details>
       </div>
     </section>
   );
@@ -208,9 +217,8 @@ function Coherence({
     );
   }
   return (
-    <p className="hint" data-testid="coherence-note">
-      Consistency check passed: no vessel exceeds {overall.label}. Highest vessel {top?.label ?? coherence.top_vessel} is {pts(Math.abs(coherence.gap))} below
-      it.
+    <p className="caveat" data-testid="coherence-note">
+      Consistency check passed: no vessel exceeds {overall.label} (highest, {top?.label ?? coherence.top_vessel}, is {pts(Math.abs(coherence.gap))} below).
     </p>
   );
 }
