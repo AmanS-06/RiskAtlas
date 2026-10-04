@@ -18,24 +18,42 @@
 }
 
 /* ---- results ---- */
+.results {
+  container: results / inline-size; /* rows switch to the one-line layout when the card itself is wide enough, whatever the screen */
+}
+.panel.results {
+  padding: 12px 14px;
+}
+.results .hint {
+  margin-top: 4px;
+  line-height: 1.4;
+}
+.results .panel-head {
+  margin-bottom: 4px;
+}
 .status-line {
   font-size: var(--text-sm);
   color: var(--text-muted);
-  margin-bottom: 8px;
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.results .panel-head h2 {
+  flex: none;
 }
 .target-list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 .target-row {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   width: 100%;
   text-align: left;
-  padding: 8px 12px;
+  padding: 6px 12px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -53,7 +71,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px 10px;
+  gap: 4px 10px;
 }
 .row-title {
   font-weight: 600;
@@ -61,13 +79,14 @@
   min-width: 0;
 }
 .mesh-id {
-  margin-left: 8px;
+  margin-left: 6px;
   padding: 0 6px;
   border: 1px solid var(--border-strong);
   border-radius: 4px;
   font-size: 0.75rem;
   font-family: var(--font-mono);
   color: var(--text-muted);
+  white-space: nowrap;
 }
 .row-prob {
   font-size: var(--text-xl);
@@ -76,14 +95,14 @@
   line-height: 1;
 }
 .row-interval {
-  font-size: var(--text-sm);
+  font-size: 0.75rem;
   color: var(--text-muted);
 }
 .row-interval.is-stale {
   font-style: italic;
 }
 .target-overall {
-  grid-template-columns: minmax(0, 170px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 150px) minmax(0, 1fr);
   align-items: center;
   column-gap: 12px;
 }
@@ -101,8 +120,71 @@
   }
   .target-overall .gauge {
     grid-row: auto;
-    max-width: 240px;
+    max-width: 200px;
     margin: 0 auto;
+  }
+}
+
+/* Wide card: one line per vessel (name, bar, probability, band), interval under the name. Four fixed columns keep the
+ * bars and numbers aligned from row to row. The overall row uses the same columns with the gauge in front. */
+@container results (min-width: 500px) {
+  .target-row {
+    grid-template-columns: minmax(0, 15rem) minmax(70px, 1fr) 3.4rem 7.25rem;
+    grid-template-rows: auto auto;
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 0;
+    padding: 5px 12px;
+  }
+  .row-main {
+    display: contents;
+  }
+  .row-title {
+    grid-column: 1;
+    grid-row: 1;
+    font-size: 0.875rem;
+  }
+  .target-row > .risk-bar {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+  .row-prob {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    text-align: right;
+    font-size: 1.375rem;
+    white-space: nowrap;
+  }
+  .target-row .band-chip {
+    grid-column: 4;
+    grid-row: 1 / span 2;
+    justify-self: stretch;
+    justify-content: center;
+  }
+  .target-row > .row-interval {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .target-overall {
+    grid-template-columns: 7.5rem minmax(0, 1fr) auto 7.25rem;
+    padding-block: 6px;
+  }
+  .target-overall .gauge {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+  .target-overall .row-title {
+    grid-column: 2;
+    font-size: var(--text-lg);
+  }
+  .target-overall > .row-interval {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .target-overall .row-prob {
+    grid-column: 3;
+    font-size: var(--text-display);
+    padding-inline: 4px;
   }
 }
 
@@ -158,39 +240,46 @@
 }
 
 .legend {
-  margin-top: 12px;
-  padding: 10px 12px;
+  margin-top: 8px;
+  padding: 6px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
 }
 .legend h3 {
-  margin: 0 0 6px;
-  font-size: var(--text-base);
+  margin: 0;
+  font-size: var(--text-sm);
 }
 .legend ul {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  gap: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+.legend .legend-more {
+  margin: 0 0 0 auto;
 }
 .legend li {
   display: flex;
-  gap: 10px;
+  gap: 4px;
   align-items: center;
-  flex-wrap: wrap;
   font-size: var(--text-sm);
 }
 
 .note-details {
-  margin-top: 10px;
+  margin-top: 6px;
   font-size: var(--text-sm);
 }
 .note-details summary {
   cursor: pointer;
   font-weight: 600;
-  min-height: 28px;
+  min-height: 24px;
 }
 .note-details p {
   margin-top: 6px;
@@ -299,7 +388,7 @@
 .group-fields {
   display: grid;
   gap: 14px 16px;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   padding: 4px 14px 14px;
 }
 
@@ -609,4 +698,16 @@ tbody th {
 }
 .para {
   margin-top: 8px;
+}
+
+/* Short laptop screens: the band legend keeps its chips and drops its caption so it stays on one line. */
+@media (min-width: 1024px) and (max-height: 820px) {
+  .legend h3 {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
 }

@@ -219,6 +219,134 @@ try {
     }
   });
 
+  console.log('\nLayout (one screen, sticky viewer, cached label)');
+  const openWithResult = async (w, h, scheme = 'light', tab = 'inputs') => {
+    const page = await newPage(browser, { width: w, height: h, colorScheme: scheme });
+    await page.goto(mockServer.url);
+    await page.getByTestId('preset-illustrative-high').click();
+    await resultsReady(page);
+    if (tab !== 'inputs') await page.getByTestId(`tab-${tab}`).click();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.getByTestId('viewer').evaluate((el) => el.dataset.ready === 'true' || new Promise((r) => setTimeout(r, 1500)));
+    await page.waitForTimeout(300);
+    return page;
+  };
+  const fits = async (page, id) => {
+    const b = await page.getByTestId(id).boundingBox();
+    const vp = page.viewportSize();
+    const bannerBottom = (await page.getByTestId('disclaimer-banner').boundingBox()).y + (await page.getByTestId('disclaimer-banner').boundingBox()).height;
+    return !!b && b.y >= bannerBottom - 0.5 && b.y + b.height <= vp.height + 0.5 && b.x >= -0.5 && b.x + b.width <= vp.width + 0.5;
+  };
+
+  await test('1920x1080 and 1440x900: the whole results card (overall CAD, LAD, LCX, RCA) and the heart are on screen without scrolling', async () => {
+    for (const [w, h] of [
+      [1920, 1080],
+      [1440, 900],
+    ]) {
+      const page = await openWithResult(w, h);
+      for (const id of ['target-CAD', 'target-LAD', 'target-LCX', 'target-RCA', 'results-panel', 'viewer'])
+        assert(await fits(page, id), `${w}x${h}: ${id} fully inside the viewport at scroll 0 (${JSON.stringify(await page.getByTestId(id).boundingBox())})`);
+      const heart = await page.getByTestId('viewer').boundingBox();
+      assert(heart.height >= (h >= 1000 ? 380 : 240), `${w}x${h}: heart view is ${heart.height}px tall`);
+      const stage = await page.locator('.stage').evaluate((e) => ({ client: e.clientHeight, scroll: e.scrollHeight }));
+      assert(stage.scroll <= stage.client + 1, `${w}x${h}: the left column needs no inner scrolling (${JSON.stringify(stage)})`);
+      equal(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), 0, 'no horizontal scroll');
+      assert(await inViewport(page, page.getByTestId('disclaimer-banner')), 'disclaimer stays visible');
+      noProblems(page, `${w}x${h}`);
+      await page.context().close();
+    }
+  });
+
+  await test('1366x768 (small laptop): heart and all four probability rows are on screen without scrolling the page', async () => {
+    const page = await openWithResult(1366, 768);
+    for (const id of ['target-CAD', 'target-LAD', 'target-LCX', 'target-RCA', 'viewer'])
+      assert(await fits(page, id), `${id} inside the viewport (${JSON.stringify(await page.getByTestId(id).boundingBox())})`);
+    await page.context().close();
+  });
+
+  await test('1920x1080: heart, overall CAD, all three vessels and the Explanation panel share one screen', async () => {
+    const page = await openWithResult(1920, 1080, 'light', 'explain');
+    for (const id of ['viewer', 'target-CAD', 'target-LAD', 'target-LCX', 'target-RCA', 'explanation-panel'])
+      assert(await fits(page, id), `${id} inside the viewport (${JSON.stringify(await page.getByTestId(id).boundingBox())})`);
+    await page.context().close();
+  });
+
+  await test('the viewer column is sticky: the heart and every probability stay in view while the form scrolls (wide screens)', async () => {
+    for (const [w, h] of [
+      [1920, 1080],
+      [1440, 900],
+      [1366, 768],
+      [1024, 768],
+    ]) {
+      const page = await openWithResult(w, h);
+      const before = await page.getByTestId('viewer').boundingBox();
+      const docH = await page.evaluate(() => document.documentElement.scrollHeight);
+      assert(docH > h * 2, `${w}x${h}: the page is long enough to scroll (${docH}px)`);
+      for (const y of [400, 1200, docH]) {
+        await page.evaluate((top) => window.scrollTo(0, top), y);
+        await page.waitForTimeout(150);
+        const sy = await page.evaluate(() => window.scrollY);
+        assert(sy > 100, `${w}x${h}: scrolled (${sy})`);
+        for (const id of ['viewer', 'target-CAD', 'target-LAD', 'target-LCX', 'target-RCA']) {
+          if (w < 1366 && id.startsWith('target-') && id !== 'target-CAD') continue; // narrow short windows may scroll inside the sticky column
+          assert(await fits(page, id), `${w}x${h} scrollY=${sy}: ${id} still in view (${JSON.stringify(await page.getByTestId(id).boundingBox())})`);
+        }
+        const now = await page.getByTestId('viewer').boundingBox();
+        assert(
+          now.y <= before.y + 1 && now.y >= (await page.getByTestId('disclaimer-banner').boundingBox()).height - 1,
+          `${w}x${h}: viewer sits just below the banner (${now.y})`,
+        );
+      }
+      assert(await inViewport(page, page.getByTestId('disclaimer-banner')), `${w}x${h}: disclaimer visible while scrolled`);
+      await page.context().close();
+    }
+  });
+
+  await test('phones and tablets keep the natural stacked flow: no sticky column, no horizontal scroll, 16px gutters', async () => {
+    for (const [w, h] of [
+      [390, 844],
+      [320, 568],
+      [768, 1024],
+    ]) {
+      const page = await openWithResult(w, h);
+      equal(await page.locator('.stage').evaluate((e) => getComputedStyle(e).position), 'static', `${w}x${h}: stage is not sticky`);
+      const viewerTop = (await page.getByTestId('viewer').boundingBox()).y;
+      await page.evaluate(() => window.scrollTo(0, 900));
+      await page.waitForTimeout(150);
+      assert((await page.getByTestId('viewer').boundingBox()).y < viewerTop - 500, `${w}x${h}: the heart scrolls away with the page`);
+      equal(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), 0, `${w}x${h}: no horizontal scroll`);
+      assert(await inViewport(page, page.getByTestId('disclaimer-banner')), `${w}x${h}: disclaimer stays visible`);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      const left = (await page.getByTestId('results-panel').boundingBox()).x;
+      assert(left >= 15.5 && left <= 16.5, `${w}x${h}: 16px gutter (${left})`);
+      await page.context().close();
+    }
+  });
+
+  await test('keyboard focus rings are not clipped by the sticky column, and keyboard focus scrolls clear of the banner', async () => {
+    const page = await openWithResult(1440, 900);
+    await page.keyboard.press('Tab'); // switches the page to keyboard modality so :focus-visible applies
+    await page.getByTestId('target-LAD').focus();
+    const ring = await page.getByTestId('target-LAD').evaluate((el) => {
+      const s = getComputedStyle(el);
+      const stage = el.closest('.stage').getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      return {
+        style: s.outlineStyle,
+        width: parseFloat(s.outlineWidth),
+        offset: parseFloat(s.outlineOffset),
+        room: Math.min(r.left - stage.left, stage.right - r.right),
+      };
+    });
+    assert(ring.style !== 'none' && ring.width >= 3, `ring: ${JSON.stringify(ring)}`);
+    assert(ring.room >= ring.width + ring.offset, `the ${ring.width + ring.offset}px ring fits inside the column (${ring.room}px room)`);
+    await page.getByTestId('field-bp').focus();
+    const top = await page.getByTestId('field-bp').evaluate((el) => el.getBoundingClientRect().top);
+    const tabs = await page.getByRole('tablist', { name: 'Dashboard sections' }).boundingBox();
+    assert(top >= tabs.y + tabs.height - 1, `focused field (${top}) is below the sticky tab bar (${tabs.y + tabs.height})`);
+    await page.context().close();
+  });
+
   await test('keyboard-only flow: reach a preset, predict, select a vessel, switch tabs', async () => {
     const page = await newPage(browser);
     await page.goto(mockServer.url);
@@ -308,22 +436,20 @@ try {
   }
 
   console.log('\nScreenshots');
-  await test('screenshots: desktop light/dark, tablet, phone', async () => {
+  await test('screenshots: desktop light/dark at 1920x1080, 1440x900 and 1366x768, tablet, phone', async () => {
     const shots = [
-      ['desktop-light', 1440, 900, 'light', 'explain'],
-      ['desktop-dark', 1440, 900, 'dark', 'physiology'],
+      ['desktop-1920x1080-light', 1920, 1080, 'light', 'explain'],
+      ['desktop-1920x1080-dark', 1920, 1080, 'dark', 'inputs'],
+      ['desktop-1440x900-light', 1440, 900, 'light', 'inputs'],
+      ['desktop-1440x900-dark', 1440, 900, 'dark', 'physiology'],
+      ['desktop-1366x768-light', 1366, 768, 'light', 'explain'],
+      ['desktop-1366x768-dark', 1366, 768, 'dark', 'inputs'],
       ['tablet-light', 768, 1024, 'light', 'inputs'],
       ['phone-light', 390, 844, 'light', 'inputs'],
       ['phone-dark', 390, 844, 'dark', 'inputs'],
     ];
     for (const [name, w, h, scheme, tab] of shots) {
-      const page = await newPage(browser, { width: w, height: h, colorScheme: scheme });
-      await page.goto(mockServer.url);
-      await page.getByTestId('preset-illustrative-high').click();
-      await resultsReady(page);
-      await page.getByTestId(`tab-${tab}`).click();
-      await page.evaluate(() => window.scrollTo(0, 0));
-      await page.waitForTimeout(200);
+      const page = await openWithResult(w, h, scheme, tab);
       await page.screenshot({ path: join(shotsDir, `${name}.png`) });
       await page.context().close();
     }
@@ -363,6 +489,30 @@ try {
     });
     return hits;
   };
+
+  await test('a cached answer is labelled "cached", never "in 0 ms"; a fresh one shows its measured latency', async () => {
+    const page = await newPage(browser);
+    const reply = (route, hit, total) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'X-Cache': hit ? 'HIT' : 'MISS', 'Access-Control-Expose-Headers': 'X-Cache' },
+        body: JSON.stringify({ ...fullBody(), timing_ms: { total } }),
+      });
+    let hit = false; // a blur and a click may both send a request: the test, not the request count, decides when the server "has seen it before"
+    await fakeBackend(page, { '/predict': (route) => reply(route, hit, hit ? 0.04 : 3812.4) });
+    await page.goto(httpServer.url);
+    await page.getByTestId('patient-form').waitFor();
+    await page.getByTestId('field-age').fill('65');
+    await page.getByTestId('predict-button').click();
+    await page.waitForFunction(() => /Full prediction in 3812 ms/.test(document.querySelector('[data-testid=status-line]')?.textContent ?? ''));
+    hit = true;
+    await page.getByTestId('predict-button').click();
+    await page.waitForFunction(() => /cached/.test(document.querySelector('[data-testid=status-line]')?.textContent ?? ''));
+    const label = await text(page, 'status-line');
+    assert(label.includes('Full prediction (cached') && !/\b0 ms/.test(label), `cached label: ${label}`);
+    await page.context().close();
+  });
 
   await test('422 shows the server message and details; the form keeps its values; next edit recovers', async () => {
     const page = await newPage(browser);
@@ -552,6 +702,27 @@ try {
       assert((await text(page, 'cf-note')).includes('Model-based what-if'), 'real counterfactual note shown');
       await page.screenshot({ path: join(shotsDir, 'real-backend-whatif.png') });
       noProblems(page, 'console');
+      await page.context().close();
+    });
+
+    await test('real backend: repeating a request is served from the API cache and the UI says "cached" instead of "in 0 ms"', async () => {
+      const page = await newPage(browser);
+      const hits = [];
+      page.on('response', (r) => {
+        if (new URL(r.url()).pathname === '/api/predict') hits.push(r.headers()['x-cache']);
+      });
+      await page.goto(httpServer.url);
+      await page.getByTestId('preset-illustrative-high').click();
+      await page.getByTestId('prob-CAD').waitFor({ timeout: 30000 });
+      await page.waitForFunction(() => /Full prediction/.test(document.querySelector('[data-testid=status-line]')?.textContent ?? ''), null, {
+        timeout: 30000,
+      });
+      await page.getByTestId('predict-button').click(); // identical inputs again
+      await page.waitForFunction(() => /cached/.test(document.querySelector('[data-testid=status-line]')?.textContent ?? ''), null, { timeout: 30000 });
+      equal(hits.at(-1), 'HIT', `X-Cache header of the repeat (${hits})`);
+      const label = await text(page, 'status-line');
+      assert(!/\b0 ms/.test(label), label);
+      await page.screenshot({ path: join(shotsDir, 'real-backend-cached.png') });
       await page.context().close();
     });
 

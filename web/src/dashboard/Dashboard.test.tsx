@@ -28,6 +28,16 @@ describe('page chrome', () => {
     expect(screen.getByRole('complementary', { name: /clinical safety disclaimer/i })).toBe(banner);
   });
 
+  it('publishes the banner and header heights as CSS variables for the sticky layout, and removes them on unmount', async () => {
+    const { unmount } = render(<Dashboard />);
+    await screen.findByTestId('patient-form', undefined, waitOpts);
+    const root = document.documentElement.style;
+    expect(root.getPropertyValue('--banner-h')).toMatch(/^\d+px$/);
+    expect(root.getPropertyValue('--header-h')).toMatch(/^\d+px$/);
+    unmount();
+    expect(root.getPropertyValue('--banner-h')).toBe('');
+  });
+
   it('flags mock data visibly and offers the way back to the live API', async () => {
     await loaded();
     expect(screen.getByTestId('mock-chip')).toHaveTextContent(MOCK_LABEL);
@@ -120,6 +130,30 @@ describe('results', () => {
     await user.click(within(panel).getByRole('tab', { name: 'RCA' }));
     expect(screen.getByTestId('target-RCA')).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByTestId('target-LAD')).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('compact results card: overall plus all three vessel rows are real buttons, each with probability, band text and interval', async () => {
+    const user = userEvent.setup();
+    await loaded();
+    await user.click(screen.getByTestId('preset-illustrative-high'));
+    await screen.findByTestId('prob-CAD', undefined, waitOpts);
+    await waitFor(() => expect(screen.getByTestId('status-line')).toHaveTextContent(/Full prediction/), waitOpts);
+    const card = screen.getByTestId('results-panel');
+    const rows = within(card)
+      .getAllByRole('button')
+      .filter((b) => b.getAttribute('data-testid')?.startsWith('target-'));
+    expect(rows.map((r) => r.getAttribute('data-testid'))).toEqual(['target-CAD', 'target-LAD', 'target-LCX', 'target-RCA']);
+    for (const r of rows) {
+      expect(r).toHaveTextContent(/\d+%/);
+      expect(r).toHaveTextContent(/(Low|Moderate|High) risk/);
+      expect(r).toHaveTextContent(/Interval \d+% to \d+%/);
+    }
+    // the notes that used to make the card tall sit in one collapsed block, but stay in the document
+    const notes = card.querySelector('details.foot-more') as HTMLDetailsElement;
+    expect(notes.open).toBe(false);
+    expect(within(notes).getByTestId('cutpoint-note')).toHaveTextContent(/Decision threshold/);
+    expect(within(notes).getByTestId('disclaimer-note')).toHaveTextContent(DISCLAIMER);
+    expect(card).toHaveTextContent(/schematic risk map/); // the vessel-colouring caveat stays visible next to the numbers
   });
 
   it('shows the consistency check and the repeated disclaimer in the results footer', async () => {

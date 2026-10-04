@@ -34,3 +34,13 @@ export function withUnit(v: number, unit: string | null | undefined): string {
 export function pts(delta: number, digits = 1): string {
   return `${Math.abs(delta * 100).toFixed(digits)} pp`;
 }
+
+/**
+ * Status line for a finished full prediction. `cached` comes from the API's `X-Cache: HIT` header. A cache hit reports the
+ * time spent copying the stored answer (a fraction of a millisecond), not the model run, so it is never shown as a latency.
+ */
+export function fullPredictionStatus(totalMs: number | undefined, cached: boolean | undefined): string {
+  if (cached) return 'Full prediction (cached answer, no new model run).';
+  if (typeof totalMs !== 'number' || !Number.isFinite(totalMs) || totalMs <= 0) return 'Full prediction.';
+  return totalMs < 1 ? 'Full prediction in under 1 ms.' : `Full prediction in ${Math.round(totalMs)} ms.`;
+}

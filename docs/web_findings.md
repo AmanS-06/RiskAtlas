@@ -67,3 +67,17 @@ The backend serves `/health`, `/meta`, `/predict`, `/predict/fast` at its root (
 - `ASSETS_AND_LICENSES.md` still has "TBD" in the 3D mesh row (viewer track). The About panel embeds the whole file, so it updates when the row is filled.
 - The moderate band for overall CAD is narrow (0.40 to 0.79) because 71% of the development cohort is positive; most illustrative patients land in "high" or "low". Presets were chosen by running them through the real models (case A low, B moderate, C high); they must be re-checked if the models are retrained.
 - `npm install` of `vitest` failed with an npm arborist error ("Cannot read properties of null (reading 'edgesOut')") on npm 10.9.4 and was installed with `--legacy-peer-deps`. `npm ci` from the committed lockfile works without flags.
+
+## 10. UX pass: what was changed and what is left (layout, sticky heart, cached label)
+
+Fixed in the web app: results card cut off at 100% zoom (now compact, one line per vessel, fits at 1920x1080 and 1440x900), heart scrolled away with the form (left column is sticky on wide screens), "Full prediction in 0 ms" on cached answers (the client reads `X-Cache`), banner height never published to the sticky offsets (tab bar was hidden under the banner), tab bar taking a fifth of a phone screen (sticky only from 1024 px), focus rings clipped by the sticky column, a flaky `ViewerCanvas` test (painted state asserted before the effect ran).
+
+Open, for other owners:
+
+- **API: cache hits lose the original latency.** `api/service.py` replaces `timing_ms` with the copy time on a hit. If the demo should show "answered in 3.8 s, now cached", the cache must keep the original `timing_ms` and add it next to the hit time (for example `timing_ms.computed`). The UI only says "cached" because nothing else is available.
+- **Viewer: the camera is framed once.** After a resize the home pose keeps the distance computed for the old aspect ratio, so a viewer that changes size crops the heart. The web app avoids this by giving the viewer a size that does not depend on the results card, but a browser window resized by the user still shows it (viewer track: re-frame in `resize()` unless the user has moved the camera).
+- **Viewer: the heart fills only about 60% of its box** and the arteries are thin at the default zoom (already noted by the submission checklist); at 1366x768 the viewer is about 210 px tall, so the heart is small. A tighter framing would help the video more than any layout change.
+- **Disclaimer banner on phones** takes about 90 px (5 lines) of an 844 px screen and stays sticky by design. Shorter wording (see item 2) would give the form more room.
+- **Short windows (under 600 px tall, or about 1366x768 with the banner on two lines):** the left column scrolls inside itself, the page does not. The heart and all four probabilities stay visible, the notes line below the card needs a scroll.
+- **Form columns:** at 1440 px the form is three columns (cards 200 px minimum). Fields with long hints ("Reference ... Training range ... Value is above the reference range") make rows uneven. A shorter hint format (one line, status as an icon) would tighten the form.
+- **Checked only in Chromium** (headless, software WebGL); layout numbers above are from that browser.

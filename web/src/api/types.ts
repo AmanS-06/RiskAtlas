@@ -129,6 +129,8 @@ export interface Prediction<T extends TargetFast = TargetFast> {
   input: { missing: string[]; ignored: string[] };
   model: { created: string; git_sha: string };
   timing_ms: Record<string, number>;
+  /** Client-side annotation, not part of the API body: true when the `X-Cache` response header said HIT. Absent when the header was absent (mock mode, other servers). */
+  cached?: boolean;
   disclaimer?: string;
   mock?: boolean;
 }

@@ -43,6 +43,29 @@ describe('HttpProvider requests', () => {
   });
 });
 
+describe('cache flag', () => {
+  const withHeader = (body: unknown, xcache?: string) =>
+    new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json', ...(xcache ? { 'X-Cache': xcache } : {}) } });
+
+  it('records X-Cache: HIT as cached, MISS as not cached, and leaves it unset when the header is absent', async () => {
+    const f = vi.fn();
+    const p = provider(f as unknown as typeof fetch);
+    f.mockResolvedValueOnce(withHeader(full(), 'HIT'));
+    expect((await p.predict('full', { age: 65 })).cached).toBe(true);
+    f.mockResolvedValueOnce(withHeader(full(), 'MISS'));
+    expect((await p.predict('full', { age: 65 })).cached).toBe(false);
+    f.mockResolvedValueOnce(withHeader(full()));
+    expect((await p.predict('full', { age: 65 })).cached).toBeUndefined();
+  });
+
+  it('never infers a cache hit from the timings alone', async () => {
+    const body = full();
+    body.timing_ms = { total: 0.04 };
+    const f = vi.fn(async () => withHeader(body));
+    expect((await provider(f as unknown as typeof fetch).predict('full', { age: 65 })).cached).toBeUndefined();
+  });
+});
+
 describe('error mapping', () => {
   const env = (code: string, message: string, details?: unknown) => ({ error: { code, message, details } });
 
