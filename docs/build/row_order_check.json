@@ -1,0 +1,24 @@
+{
+ "n": 303,
+ "note": "AUC of row position as a score for the positive label; 0.5 means row order carries no information",
+ "CAD": {
+  "auc_of_row_position": 0.355,
+  "spearman_rho": -0.227,
+  "p_value": 6.76e-05
+ },
+ "LAD": {
+  "auc_of_row_position": 0.407,
+  "spearman_rho": -0.159,
+  "p_value": 0.00545
+ },
+ "LCX": {
+  "auc_of_row_position": 0.394,
+  "spearman_rho": -0.18,
+  "p_value": 0.00165
+ },
+ "RCA": {
+  "auc_of_row_position": 0.45,
+  "spearman_rho": -0.083,
+  "p_value": 0.149
+ }
+}

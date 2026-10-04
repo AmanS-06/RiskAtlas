@@ -20,7 +20,7 @@ afterthought.
 | **Download** | `https://archive.ics.uci.edu/static/public/411/extention+of+z+alizadeh+sani+dataset.zip` |
 | **DOI** | https://doi.org/10.24432/C5461K |
 | **Licence** | **CC BY 4.0** — attribution required, commercial use and adaptation permitted |
-| **Contents** | 303 patients, 59 features, no missing cells |
+| **Contents** | 303 patients, 59 columns (55 candidate inputs and the 4 outcome columns LAD, LCX, RCA, Cath), no missing cells; 52 inputs are used |
 | **Used for** | Training and evaluating the CAD, LAD, LCX and RCA models |
 
 **Required attribution** (reproduce in the README, the documentation and the demo
@@ -114,7 +114,14 @@ Check the licence **per asset**, not per site. Sketchfab models in particular va
 
 | Font | Source | Licence | Used for |
 |---|---|---|---|
-| TBD | TBD | TBD | TBD |
+| None bundled | The web app uses the system font stack (`--font-sans`, `--font-mono` in `web/src/shared/theme.css`); no font file is shipped or loaded from a CDN | n/a | Web app |
+| Liberation Sans, DejaVu Sans Mono | Fonts installed on the machine that built the PDF, embedded as subsets in `docs/PROJECT_DOCUMENTATION.pdf` (`docs/build/style.css`) | Liberation: SIL Open Font License 1.1. DejaVu: Bitstream Vera licence with public-domain changes. Both permit embedding in documents | Project documentation PDF |
+
+## Documentation figures
+
+`docs/figures/` holds screenshots of this project's own app and 3D viewer, and charts drawn from `reports/` by
+`docs/build/make_figures.py`. The screenshots show the heart model above, so the CC BY-SA 4.0 attribution given
+for the model applies to them as well; it is reproduced in `README.md` and `docs/PROJECT_DOCUMENTATION.md`.
 
 ## Libraries
 
