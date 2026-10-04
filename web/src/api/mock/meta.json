@@ -1,0 +1,1198 @@
+{
+ "features": [
+  {
+   "name": "age",
+   "label": "Age",
+   "type": "numeric",
+   "unit": "years",
+   "range": null,
+   "group": "demographics",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": null,
+   "stats": {
+    "median": 58,
+    "std": 10.39227750453444,
+    "min": 30,
+    "max": 86
+   }
+  },
+  {
+   "name": "sex",
+   "label": "Male sex",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "demographics",
+   "mutable": false,
+   "anchor": null,
+   "map": {
+    "Male": 1,
+    "Fmale": 0
+   },
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 1,
+    "std": 0.49423489903366175,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "bmi",
+   "label": "Body mass index",
+   "type": "numeric",
+   "unit": "kg/m2",
+   "range": [
+    18.5,
+    24.9
+   ],
+   "group": "demographics",
+   "mutable": true,
+   "anchor": null,
+   "map": null,
+   "allowed": null,
+   "stats": {
+    "median": 26.775510204081634,
+    "std": 4.098865084776586,
+    "min": 18.115412710007302,
+    "max": 40.90065778377467
+   }
+  },
+  {
+   "name": "dm",
+   "label": "Diabetes mellitus",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "demographics",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.4577056470917884,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "htn",
+   "label": "Hypertension",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "demographics",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 1,
+    "std": 0.49250718693294226,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "current_smoker",
+   "label": "Current smoker",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "demographics",
+   "mutable": true,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.4064911641758194,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "ex_smoker",
+   "label": "Ex-smoker",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "demographics",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.17894065571361206,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "fh",
+   "label": "Family history of CAD",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "demographics",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.3657344946035515,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "obesity",
+   "label": "Obesity",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "demographics",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 1,
+    "std": 0.4605855997577133,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "crf",
+   "label": "Chronic renal failure",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "demographics",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.1395497504252442,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "cva",
+   "label": "Cerebrovascular accident",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "demographics",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.12760519292790792,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "airway_disease",
+   "label": "Airway disease",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "demographics",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.18735400555465276,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "thyroid_disease",
+   "label": "Thyroid disease",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "demographics",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.15047698805811643,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "chf",
+   "label": "Congestive heart failure",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "demographics",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.0574484989621426,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "dlp",
+   "label": "Dyslipidemia",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "demographics",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.4835049328456893,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "bp",
+   "label": "Blood pressure",
+   "type": "numeric",
+   "unit": "mmHg",
+   "range": [
+    90,
+    120
+   ],
+   "group": "vitals",
+   "mutable": true,
+   "anchor": null,
+   "map": null,
+   "allowed": null,
+   "stats": {
+    "median": 130,
+    "std": 18.938105135143886,
+    "min": 90,
+    "max": 190
+   }
+  },
+  {
+   "name": "pr",
+   "label": "Pulse rate",
+   "type": "numeric",
+   "unit": "bpm",
+   "range": [
+    60,
+    100
+   ],
+   "group": "vitals",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": null,
+   "stats": {
+    "median": 70,
+    "std": 8.91180066124266,
+    "min": 50,
+    "max": 110
+   }
+  },
+  {
+   "name": "edema",
+   "label": "Edema",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "vitals",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.19534951250833327,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "weak_peripheral_pulse",
+   "label": "Weak peripheral pulse",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "vitals",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.12760519292790795,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "lung_rales",
+   "label": "Lung rales",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "vitals",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.18735400555465273,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "systolic_murmur",
+   "label": "Systolic murmur",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "vitals",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.34262400575500757,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "diastolic_murmur",
+   "label": "Diastolic murmur",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "vitals",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.17004745410260413,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "typical_chest_pain",
+   "label": "Typical chest pain",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "symptoms",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 1,
+    "std": 0.4991195009875263,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "dyspnea",
+   "label": "Dyspnea",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "symptoms",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.4974746621634894,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "function_class",
+   "label": "Functional class",
+   "type": "numeric",
+   "unit": null,
+   "range": null,
+   "group": "symptoms",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": null,
+   "stats": {
+    "median": 0,
+    "std": 1.0320419005827184,
+    "min": 0,
+    "max": 3
+   }
+  },
+  {
+   "name": "atypical",
+   "label": "Atypical chest pain",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "symptoms",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.46198336293742764,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "nonanginal",
+   "label": "Non-anginal chest pain",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "symptoms",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.22401451223944846,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "lowth_ang",
+   "label": "Low-threshold angina",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "symptoms",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.08110982416280911,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "q_wave",
+   "label": "Q wave",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "ecg",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.22401451223944846,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "st_elevation",
+   "label": "ST elevation",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "ecg",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.2102752478208748,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "st_depression",
+   "label": "ST depression",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "ecg",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.4242759172820571,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "t_inversion",
+   "label": "T-wave inversion",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "ecg",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.4577056470917884,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "lvh",
+   "label": "Left ventricular hypertrophy",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "ecg",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.24870437773781925,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "poor_r_progression",
+   "label": "Poor R-wave progression",
+   "type": "binary",
+   "unit": null,
+   "range": null,
+   "group": "ecg",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.17004745410260413,
+    "min": 0,
+    "max": 1
+   }
+  },
+  {
+   "name": "bbb",
+   "label": "Bundle branch block",
+   "type": "categorical",
+   "unit": null,
+   "range": null,
+   "group": "ecg",
+   "mutable": false,
+   "anchor": null,
+   "map": {
+    "N": 0,
+    "LBBB": 1,
+    "RBBB": 2
+   },
+   "allowed": [
+    0,
+    1,
+    2
+   ],
+   "stats": {
+    "median": 0,
+    "std": 0.37391973517294064,
+    "min": 0,
+    "max": 2
+   }
+  },
+  {
+   "name": "fbs",
+   "label": "Fasting blood sugar",
+   "type": "numeric",
+   "unit": "mg/dL",
+   "range": [
+    70,
+    100
+   ],
+   "group": "labs",
+   "mutable": true,
+   "anchor": null,
+   "map": null,
+   "allowed": null,
+   "stats": {
+    "median": 98,
+    "std": 52.07965276703074,
+    "min": 62,
+    "max": 400
+   }
+  },
+  {
+   "name": "cr",
+   "label": "Creatinine",
+   "type": "numeric",
+   "unit": "mg/dL",
+   "range": [
+    0.6,
+    1.3
+   ],
+   "group": "labs",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": null,
+   "stats": {
+    "median": 1,
+    "std": 0.264296279451307,
+    "min": 0.5,
+    "max": 2.2
+   }
+  },
+  {
+   "name": "tg",
+   "label": "Triglycerides",
+   "type": "numeric",
+   "unit": "mg/dL",
+   "range": [
+    0,
+    150
+   ],
+   "group": "labs",
+   "mutable": true,
+   "anchor": null,
+   "map": null,
+   "allowed": null,
+   "stats": {
+    "median": 122,
+    "std": 97.95945072085185,
+    "min": 37,
+    "max": 1050
+   }
+  },
+  {
+   "name": "ldl",
+   "label": "LDL cholesterol",
+   "type": "numeric",
+   "unit": "mg/dL",
+   "range": [
+    0,
+    100
+   ],
+   "group": "labs",
+   "mutable": true,
+   "anchor": null,
+   "map": null,
+   "allowed": null,
+   "stats": {
+    "median": 100,
+    "std": 35.39668788292359,
+    "min": 18,
+    "max": 232
+   }
+  },
+  {
+   "name": "hdl",
+   "label": "HDL cholesterol",
+   "type": "numeric",
+   "unit": "mg/dL",
+   "range": [
+    40,
+    100
+   ],
+   "group": "labs",
+   "mutable": true,
+   "anchor": null,
+   "map": null,
+   "allowed": null,
+   "stats": {
+    "median": 39,
+    "std": 10.55907692571349,
+    "min": 15.9,
+    "max": 111
+   }
+  },
+  {
+   "name": "bun",
+   "label": "Blood urea nitrogen",
+   "type": "numeric",
+   "unit": "mg/dL",
+   "range": [
+    7,
+    20
+   ],
+   "group": "labs",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": null,
+   "stats": {
+    "median": 16,
+    "std": 6.956760772568413,
+    "min": 6,
+    "max": 52
+   }
+  },
+  {
+   "name": "esr",
+   "label": "Erythrocyte sedimentation rate",
+   "type": "numeric",
+   "unit": "mm/h",
+   "range": [
+    0,
+    20
+   ],
+   "group": "labs",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": null,
+   "stats": {
+    "median": 15,
+    "std": 15.936475044964782,
+    "min": 1,
+    "max": 90
+   }
+  },
+  {
+   "name": "hb",
+   "label": "Hemoglobin",
+   "type": "numeric",
+   "unit": "g/dL",
+   "range": [
+    12,
+    17.5
+   ],
+   "group": "labs",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": null,
+   "stats": {
+    "median": 13.2,
+    "std": 1.6104520583998867,
+    "min": 8.9,
+    "max": 17.6
+   }
+  },
+  {
+   "name": "k",
+   "label": "Potassium",
+   "type": "numeric",
+   "unit": "mEq/L",
+   "range": [
+    3.5,
+    5
+   ],
+   "group": "labs",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": null,
+   "stats": {
+    "median": 4.2,
+    "std": 0.4582017632143438,
+    "min": 3,
+    "max": 6.6
+   }
+  },
+  {
+   "name": "na",
+   "label": "Sodium",
+   "type": "numeric",
+   "unit": "mEq/L",
+   "range": [
+    135,
+    145
+   ],
+   "group": "labs",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": null,
+   "stats": {
+    "median": 141,
+    "std": 3.807885117982797,
+    "min": 128,
+    "max": 156
+   }
+  },
+  {
+   "name": "wbc",
+   "label": "White blood cell count",
+   "type": "numeric",
+   "unit": "cells/mm3",
+   "range": [
+    4000,
+    11000
+   ],
+   "group": "labs",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": null,
+   "stats": {
+    "median": 7100,
+    "std": 2413.739323339799,
+    "min": 3700,
+    "max": 18000
+   }
+  },
+  {
+   "name": "lymph",
+   "label": "Lymphocytes",
+   "type": "numeric",
+   "unit": "percent",
+   "range": [
+    20,
+    40
+   ],
+   "group": "labs",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": null,
+   "stats": {
+    "median": 32,
+    "std": 9.972591556076441,
+    "min": 7,
+    "max": 60
+   }
+  },
+  {
+   "name": "neut",
+   "label": "Neutrophils",
+   "type": "numeric",
+   "unit": "percent",
+   "range": [
+    40,
+    70
+   ],
+   "group": "labs",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": null,
+   "stats": {
+    "median": 60,
+    "std": 10.182493226947498,
+    "min": 32,
+    "max": 89
+   }
+  },
+  {
+   "name": "plt",
+   "label": "Platelets",
+   "type": "numeric",
+   "unit": "1000/mm3",
+   "range": [
+    150,
+    450
+   ],
+   "group": "labs",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": null,
+   "stats": {
+    "median": 210,
+    "std": 60.79619927480209,
+    "min": 25,
+    "max": 742
+   }
+  },
+  {
+   "name": "ef_tte",
+   "label": "Ejection fraction (echo)",
+   "type": "numeric",
+   "unit": "percent",
+   "range": [
+    55,
+    70
+   ],
+   "group": "echo",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": null,
+   "stats": {
+    "median": 50,
+    "std": 8.927194182365653,
+    "min": 15,
+    "max": 60
+   }
+  },
+  {
+   "name": "region_rwma",
+   "label": "Regional wall motion abnormality",
+   "type": "categorical",
+   "unit": null,
+   "range": null,
+   "group": "echo",
+   "mutable": false,
+   "anchor": null,
+   "map": null,
+   "allowed": [
+    0,
+    1,
+    2,
+    3,
+    4
+   ],
+   "stats": {
+    "median": 0,
+    "std": 1.1325309160780648,
+    "min": 0,
+    "max": 4
+   }
+  },
+  {
+   "name": "vhd",
+   "label": "Valvular heart disease",
+   "type": "numeric",
+   "unit": null,
+   "range": null,
+   "group": "echo",
+   "mutable": false,
+   "anchor": null,
+   "map": {
+    "N": 0,
+    "mild": 1,
+    "Moderate": 2,
+    "Severe": 3
+   },
+   "allowed": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "stats": {
+    "median": 1,
+    "std": 0.7550817211196638,
+    "min": 0,
+    "max": 3
+   }
+  }
+ ],
+ "groups": [
+  "demographics",
+  "vitals",
+  "symptoms",
+  "ecg",
+  "labs",
+  "echo"
+ ],
+ "targets": [
+  {
+   "id": "CAD",
+   "label": "Overall CAD",
+   "kind": "overall",
+   "mesh": null,
+   "conditional_on": null,
+   "threshold": 0.7214770249660001,
+   "rule_out": 0.40010763598096705,
+   "rule_in": 0.7914672217769247,
+   "family": "lr",
+   "prevalence": 0.7128712871287128
+  },
+  {
+   "id": "LAD",
+   "label": "Left anterior descending",
+   "kind": "vessel",
+   "mesh": "LAD",
+   "conditional_on": "CAD",
+   "threshold": 0.4276426910408791,
+   "rule_out": 0.3069298398610529,
+   "rule_in": 0.7297287336969376,
+   "family": "lr",
+   "prevalence": 0.5841584158415841
+  },
+  {
+   "id": "LCX",
+   "label": "Left circumflex",
+   "kind": "vessel",
+   "mesh": "LCX",
+   "conditional_on": "CAD",
+   "threshold": 0.3989222222255134,
+   "rule_out": 0.19745764377172714,
+   "rule_in": 0.5558405553723937,
+   "family": "lr",
+   "prevalence": 0.3927392739273927
+  },
+  {
+   "id": "RCA",
+   "label": "Right coronary artery",
+   "kind": "vessel",
+   "mesh": "RCA",
+   "conditional_on": "CAD",
+   "threshold": 0.3731321499847187,
+   "rule_out": 0.23597396420151673,
+   "rule_in": 0.5446241233120107,
+   "family": "lr",
+   "prevalence": 0.37623762376237624
+  }
+ ],
+ "risk_bands": [
+  {
+   "id": "low",
+   "label": "Low risk",
+   "color": "#2E9E6A"
+  },
+  {
+   "id": "moderate",
+   "label": "Moderate risk",
+   "color": "#E0A030"
+  },
+  {
+   "id": "high",
+   "label": "High risk",
+   "color": "#D64545"
+  }
+ ],
+ "uncertainty_interval": [
+  0.1,
+  0.9
+ ],
+ "forbidden_inputs": [
+  "LAD",
+  "LCX",
+  "RCA",
+  "Cath",
+  "CAD"
+ ],
+ "model": null,
+ "disclaimer": "MOCK DATA - not a real prediction.",
+ "mock": true,
+ "api_version": "mock"
+}
