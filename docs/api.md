@@ -6,9 +6,9 @@ version. Interactive docs are served at `/docs` (Swagger) and the schema at `/op
 Every JSON example below is a real response from the running server, trimmed with `...` where a
 list or object is long. Nothing is typed by hand except those trims.
 
-> **Clinical safety disclaimer.** RiskAtlas is for decision support and educational purposes only.
-> It is not a substitute for formal diagnostic imaging or clinical judgement, and it must not be
-> used to make patient care decisions. The same text is returned in `/meta` and in the
+> **Clinical safety disclaimer.** RiskAtlas is a research prototype for decision support and
+> educational purposes only. It is not a medical device, does not provide a diagnosis, and is not a
+> substitute for formal diagnostic imaging or clinical judgement. The same text is returned in `/meta` and in the
 > `disclaimer` field of every prediction. The UI must keep it visible.
 
 ## 1. Run it
@@ -107,7 +107,7 @@ Everything the frontend needs, built from `config/features.yaml`, `config/manife
   "forbidden_inputs": ["LAD", "LCX", "RCA", "Cath", "CAD"],
   "model": {"created": "2026-10-04 10:11:08", "git_sha": "10eadccccb3a0f44f408890675a2a9e46d17cdd8-dirty",
             "protocol": "full_cv", "n_patients": 303},
-  "disclaimer": "RiskAtlas is for decision support and educational purposes only. ...",
+  "disclaimer": "RiskAtlas is a research prototype for decision support and educational purposes only. ...",
   "mock": false,
   "api_version": "1.0.0"
 }
@@ -182,7 +182,7 @@ Response (trimmed):
   "input": {"missing": ["bmi", "htn", "ex_smoker", "fh", "... 40 more"], "ignored": []},
   "model": {"created": "2026-10-04 10:11:08", "git_sha": "10eadccccb3a0f44f408890675a2a9e46d17cdd8-dirty"},
   "timing_ms": {"uncertainty": 2414.7, "shap": 1108.3, "counterfactual": 680.0, "total": 4325.5},
-  "disclaimer": "RiskAtlas is for decision support and educational purposes only. ...",
+  "disclaimer": "RiskAtlas is a research prototype for decision support and educational purposes only. ...",
   "mock": false
 }
 ```
