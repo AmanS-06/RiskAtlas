@@ -60,7 +60,8 @@ Integration notes:
 - `getStatus().usingFallback` is `'none'`, `'lite'` or `'procedural'`; show it if you want, it is not an error state.
 
 Run the harness: `cd web/viewer-demo && npm ci && npm run dev` (http://127.0.0.1:5174). Query switches for
-experiments: `?lowPower=0|1`, `?reduced=1`, `?model=<url>`, `?lite=<url>|none`.
+experiments: `?lowPower=0|1`, `?reduced=1`, `?model=<url>`, `?lite=<url>|none`, and for the appearance options of
+section 3a `?body=natural`, `?labels=off|name|risk`, `?boost=<number>`, `?hidden=0|1`.
 
 ## 2. Public contract
 
@@ -69,7 +70,7 @@ specified, plus `OverallState`, `ViewerStatus`, `FallbackLevel`, `AnchorSpec`, `
 
 | Member | Behaviour |
 |---|---|
-| `new HeartViewer({container, modelUrl, liteModelUrl?, lowPower?, reducedMotion?})` | Creates the canvas inside `container`, sets `role="application"`, an `aria-label`, `tabindex=0` (if none) and `position:relative` (if static), and an aria-live region. `lowPower` default: automatic, true on software GL. `reducedMotion` default: the OS `prefers-reduced-motion` setting, read once. |
+| `new HeartViewer({container, modelUrl, liteModelUrl?, lowPower?, reducedMotion?, bodyStyle?, vesselBoost?, labels?, showHidden?})` | The last four are optional appearance options, section 3a (defaults are the recommended look; passing none changes nothing about the contract). Creates the canvas inside `container`, sets `role="application"`, an `aria-label`, `tabindex=0` (if none) and `position:relative` (if static), and an aria-live region. `lowPower` default: automatic, true on software GL. `reducedMotion` default: the OS `prefers-reduced-motion` setting, read once. |
 | `load(): Promise<void>` | Standard GLB, then lite, then the built-in procedural heart (order reversed when `lowPower`, see 6). A GLB without mesh nodes named `LAD`, `LCX`, `RCA` is rejected with a `console.error` naming the missing nodes and the next fallback is tried. 20 s timeout per file. Never rejects. Safe to call twice. |
 | `setVessels(states)` | Merges: vessels not mentioned are unchanged, an explicit `undefined` value clears one to neutral grey. Cheap: writes material colours, no geometry or material is re-created. Colours must be `#rgb` or `#rrggbb`, otherwise that entry is ignored with a warning. Works before `load()` (applied on load). |
 | `setOverall(state \| null)` | Heart-level glow, see 4. `null` removes it. |
@@ -82,12 +83,14 @@ specified, plus `OverallState`, `ViewerStatus`, `FallbackLevel`, `AnchorSpec`, `
 | `dispose()` | Cancels frames and timers, removes every listener and observer, disposes geometries, materials and the renderer, forces the GL context loss, removes everything it added to `container` and restores the attributes it set. Idempotent. All methods are no-ops afterwards. |
 
 Deviations from the requested contract: none. Additions: `OverallState` and the anchor types, `onAnchors`
-(the contract left `setAnchors` open), and the semantics stated above for `setVessels`, `lowPower`, `onSelect`.
+(the contract left `setAnchors` open), the semantics stated above for `setVessels`, `lowPower`, `onSelect`, and the
+four optional appearance options (`bodyStyle`, `vesselBoost`, `labels`, `showHidden`, section 3a) with the types
+`BodyStyle` and `LabelMode`. Every method and every existing option behaves as before.
 
 ## 3. Colour and uncertainty
 
 The caller owns every colour and band; the viewer holds no risk colour, no threshold and no band name (it draws a vessel
-without a state in neutral grey, the outline in white and near-black, the body in its own tissue tones).
+without a state in light neutral grey, the outline in white and near-black, the body in a neutral slate, section 3a).
 The only band logic is the order `low` < `moderate` < `high`, used for the heart-level glow (section 4). The vessel
 ids `LAD | LCX | RCA` are the only hardcoded names. They are the `mesh` values of `config/manifest.yaml`; this is
 enforced twice: at load time the viewer checks the model's node names and logs a clear error if one is missing, and
@@ -112,11 +115,71 @@ emissive term of 0.3 to 0.7 times the colour), so a face-on pixel is close to, n
 legend swatches should still use the hex; they match by hue and band ordering (verified by pixel read-back,
 section 9).
 
+## 3a. Making the arteries the focus (appearance options)
+
+Problem seen in the first app screenshots: a pale pink heart with thin dark-pink arteries, so the risk colours barely
+stood out and the three vessels were hard to tell apart. What the viewer does now, each measured below:
+
+| Change | Why | Cost / limit |
+|---|---|---|
+| **Neutral body** (`bodyStyle: 'neutral'`, default). Chambers `#728092`, great vessels `#909aaa`, left main stem `#4c5461`, unscored arteries light grey `#c9ced6` (`BODY_NEUTRAL`, `UNSCORED_VESSEL` in `viewerLogic.ts`). `'natural'` restores the GLB's pink. | The three band colours become the only saturated colours in the scene. A *mid-dark* slate on purpose: amber and green sit at L* 62 to 70, so a mid-light grey body (tried first, `#a9b2be`) left amber only 26 delta E from the body and the pale-blue safe-palette colour even closer; against the slate each band colour is lighter or more saturated. | A viewer constant, not data. It carries no risk meaning; risk colours still come only from the app. |
+| **Calibre exaggeration** (`vesselBoost`, default 1 = 0.006 model units along the smooth normal). | At default zoom arteries were 3 to 5 px wide. Thin branches now stay visible: 1.8 times the vessel pixels at boost 1 against boost 0, 2.6 times at boost 2 (13,043 / 7,181 pixels at 1180x760). `0` draws the modelled calibre. | Visual only: picking, anchors, the triangle budget (23,283 / 6,691, asserted) are unaffected. The arteries are drawn wider than anatomical; this is an atlas-style schematic and the doc says so. |
+| **Rim light and view-space lift** on the vessel material. A fresnel rim in the vessel's own lightened colour makes tubes read as round; `lift` (0.02 model units toward the camera) keeps an artery that is slightly buried in the surface (the decimated lite model) from being cut off by the heart wall. | Edge definition on any body colour; fewer broken-up arteries. | Both are in the existing standard/Lambert material through `onBeforeCompile`, no extra pass. |
+| **Permanent thin dark edge** around every artery (full-quality mode only). | Separates the colour from the body on screenshots and projectors. | One extra pass over the arteries; skipped on software GL. |
+| **Hidden-artery ghost** (`showHidden`, default true, false in low-power mode). Arteries behind the heart wall are drawn again at 32% opacity, flat colour, only where the wall hides them (`depthFunc: GreaterDepth`). | From any side all three arteries remain visible, and their colour tells the risk even when the artery is behind the surface. Translucent chambers were considered and rejected: they wash the colour of every vessel and need depth sorting between overlapping double-sided meshes. | One transparent pass over the arteries; together with the edge pass, full quality is 4 to 17% slower (section 6). |
+| **In-canvas labels** (`labels`, default `'risk'`): a small chip per artery, "LAD 76%" (`'name'`: "LAD"), pinned to a visible point of the artery with a leader line. A coloured stripe repeats the band colour; the name and number identify the artery without colour. | A judge reads the artery and its risk at a glance, and a colour-blind viewer has the number. | See below. |
+| **Overall-glow tint damped** to 35% of its old strength on the neutral body (`NEUTRAL_TINT_SHARE`). | The tint turned the grey body pink again. The halo behind the heart still carries the overall state. | |
+| **Home view** turned from (0.5, 0.3, 1) to (0.85, 0.3, 1). | The LCX runs on the left edge: from the old pose only a sliver showed, so a high-risk LCX was easy to miss. | The RCA stays on the front face. |
+
+**Labels, in detail.** Each label sits on one of 20 sample points spread over its artery (farthest-point sampling,
+starting at the vertex nearest the artery's centroid, so the trunk is preferred). A point is usable if it faces the
+camera and a ray from the camera to it is not blocked by the heart wall (a body hit more than 0.03 model units in front
+of it blocks, because arteries sit partly in the surface). The label stays on its point while that point stays visible
+(no jumping), otherwise it moves to the next visible candidate, and is hidden when none is visible, so a label never
+points at a vessel that cannot be seen (tested over 8 views around the heart by reading the canvas pixel at each label
+anchor). The chip is placed in one of 8 directions around the anchor so it covers the fewest vessel vertices
+and no other chip (`chooseLabelSpot`), then pushed apart from neighbours (`separateChips`) and kept inside the container.
+Positions are recomputed at most every 100 ms while the camera moves, plus once when it stops (a timer, not a frame:
+the viewer still draws 0 frames when idle).
+
+**Accessibility of the labels.** The overlay is `aria-hidden="true"` and `pointer-events:none`. That is deliberate: the
+dashboard already lists every vessel with its band and probability, the viewer's own live region announces selections
+("LAD selected. high risk, probability 76 percent."), and the container's `aria-label` names the arteries, so a screen
+reader gains nothing from a second, positional copy of the same text, and a moving chip would be read out of order. For
+sighted users, including colour-blind ones, the chip is a non-colour cue. Reduced motion does not hide labels (they do
+not animate; they just follow the camera, which reduced motion already freezes between user actions). Chips have white
+text on 88% near-black with a white border, about 15:1, and do not depend on the page theme. The overlay uses the
+attribute `data-label`, not `data-vessel` (the web app's tests use `data-vessel` for the stub viewer's SVG).
+
+**Colour separation, measured** (pixel read-back of the WebGL canvas, median colour of the pixels of each band
+colour and of the body, CIE76 delta E; `web/viewer-demo/e2e/appearance.e2e.test.ts`; the canvas is transparent, so the
+vessel-body numbers are the same in the light and dark theme; the body against the app's `--viewer-bg` tokens is 36.1
+(light `#e6edf5`) and 53.2 (dark `#0a1018`)):
+
+| Palette, vision | high-body | moderate-body | low-body | high-moderate | moderate-low | high-low |
+|---|---|---|---|---|---|---|
+| config bands, normal | 65.2 | 29.0 | 43.7 | 55.0 | 37.3 | 92.3 |
+| config bands, protanopia | 27.7 | 29.0 | 27.5 | 8.5 | 6.2 | 14.0 |
+| config bands, deuteranopia | 43.3 | 29.6 | 19.9 | 13.8 | 9.8 | 23.4 |
+| config bands, tritanopia | 82.3 | 17.1 | 30.0 | 65.4 | 45.7 | 110.8 |
+| safe palette (`--safe-band-*`), normal | 56.0 | 28.0 | 32.4 | 51.2 | 47.8 | 81.5 |
+| safe palette, protanopia | 28.9 | 27.7 | 31.7 | 30.8 | 46.8 | 60.4 |
+| safe palette, deuteranopia | 31.0 | 28.8 | 30.4 | 17.1 | 46.9 | 57.3 |
+| safe palette, tritanopia | 71.8 | 18.9 | 34.7 | 53.7 | 47.6 | 99.8 |
+
+The tests assert, for normal vision, every vessel against the body above 22 (moderate-body is the weakest, 28 to 29) and
+every pair above 30; under all three deficiencies every vessel against the body above 15; and for the safe palette
+every pair above 12 under deficiencies (crimson against orange under deuteranopia, 17, is its weakest). The config
+palette's pairwise collapse under red-green deficiency (moderate-low 6 to 10, high-moderate 8 to 14 in the rendered
+canvas; `docs/viewer_findings.md` item 3 has the swatch-level numbers) is a property of the palette that the app
+passes in, not of the viewer: the labels' numbers and the app's colour-blind-safe palette are the mitigations, and the
+viewer deliberately does not recolour what it is given.
+
 ## 4. Heart-level glow (`setOverall`)
 
 A soft halo behind the heart plus a faint tint of the chambers. Opacity **and size** grow with probability, so the
 halo carries information without colour: `halo opacity = 0.2 + 0.75 p`, `halo size = (2.1 + 0.9 p) x heart radius`,
-`chamber tint = 0.05 + 0.17 p` (x1.6 in low-power mode, which has no halo).
+`chamber tint = 0.05 + 0.17 p` (x1.6 in low-power mode, which has no halo; x0.35 on the neutral body, section 3a).
 
 **Never visually weaker than the strongest vessel.** The glow takes the colour of the strongest of
 `{overall, LAD, LCX, RCA}`, where "strongest" means the higher band (`low` < `moderate` < `high`), then the higher
@@ -136,7 +199,7 @@ calmer colour than the vessel beneath it. `null` means no glow.
 | Right-drag / two-finger drag | Pan, clamped so the heart cannot leave the view |
 | Click / tap a vessel | Select it. Hits within 6 px (14 px for touch) of a vessel count, because arteries are about 5 px wide. A vessel hidden behind the heart cannot be hit (the ray takes the first surface it meets) |
 | Click / tap empty space or the heart body | Clear the selection |
-| Hover (mouse) | Pointer cursor and a white outline on a vessel; a faint lift on a chamber. Chambers are never selectable |
+| Hover (mouse) | Pointer cursor and a white outline on a vessel; a faint lift on a chamber. Chambers are never selectable. The in-canvas labels never take the pointer |
 | `1` `2` `3` | Select LAD, LCX, RCA (order of `VESSEL_IDS`) |
 | `Escape` | Clear selection |
 | Arrow keys | Rotate |
@@ -148,7 +211,7 @@ Ctrl, Alt or Meta held and when the key event comes from UI placed inside the co
 
 **The selected vessel does not depend on colour:** it gets a two-tone outline (white next to the vessel, dark outside
 it, so it shows on light and dark pages), a brighter emissive level, three emissive pulses (skipped under reduced
-motion), and the camera turns to face it. Verified by pixel counts in the browser test.
+motion), its label chip gets a heavier border and weight, and the camera turns to face it. Verified by pixel counts in the browser test.
 
 ## 6. Rendering policy, fallbacks and performance
 
@@ -193,6 +256,27 @@ and in ad-hoc runs on a calmer moment: 13 to 17 fps against 24 to 28). Only the 
 low-power mode cost about 30% (19 to 23 fps against 30 to 32). One pick (click or hover) costs about 3 ms. All of
 this is the worst case, no GPU at all; hardware GL is expected to be faster and was not measured.
 
+**Before and after the legibility pass (section 3a)**, same machine and session, the `TIMING` tests of the old commit
+(`b795a64`, in a second worktree) and of this branch run back to back, twice each (frames per second while orbiting;
+the VM was calmer than in runs A and B above, hence the higher absolute numbers):
+
+| Scenario | before, run 1 / 2 | after, run 1 / 2 / final run | change |
+|---|---|---|---|
+| default on software GL (lite, low power), 1280x800 | 32.1 / 35.9 | 28.7 / 31.5 / 30.5 | -5 to -12% |
+| `lowPower: true`, standard model, 1280x800 | 28.4 / 24.9 | 25.4 / 23.8 / 27.8 | within noise to -10% |
+| full quality, 1280x800 | 18.4 / 17.9 | 15.6 / 14.9 / 17.7 | -4 to -17% (ghost and edge passes, which low power skips) |
+| default, 1920x1080 | 20.8 / 21.5 | 21.1 / 18.7 / 19.7 | within noise to -13% |
+| default, 390x844 phone | 59.2 / 60.1 | 56.1 / 56.4 / 55.6 | about -6% |
+
+A finer A/B of the default scenario (8 orbit runs each, medians): before 37.2 fps, after 35.5 fps with labels, 37.0 with
+`labels: 'off'`. The labels are the main cost (one DOM write per label per update, at most every 100 ms; the occlusion rays
+cost about 1.3 ms per update). Things that were measured and removed to keep software GL at its old rate: the edge pass and
+the ghost pass in low-power mode, a full-size label overlay layer (now a zero-size anchor), and per-frame label updates
+(now throttled). The new rates stay inside the 27 to 32 fps band measured for the first version. Idle cost is unchanged
+(0 frames, 0 `requestAnimationFrame` calls; the label throttle uses one `setTimeout`, not a frame). Triangle budget unchanged:
+23,283 (standard) and 6,691 (lite); the extra passes reuse the vessel geometry (8,030 vessel triangles in the standard model,
+1,668 in lite; drawn up to three times at full quality, once plus a rim shader in low power).
+
 Page load to first drawn model on localhost (including the 680 kB JS bundle and parsing the GLB): standard 646 and
 847 ms, lite 531 and 374 ms (runs A and B). Over a real network add the transfer of 561 kB (`heart.glb`, 311 kB with `gzip -9`) or 202 kB
 (`heart_lite.glb`, 108 kB with `gzip -9`).
@@ -215,6 +299,7 @@ which is the viewer plus three.js plus about 100 lines of demo code, is 680.7 kB
   still show the band label next to every colour (`config/risk_bands.yaml` rule).
 - `prefers-reduced-motion` (or `reducedMotion: true`): no damping tail, no camera tween, no pulse.
 - The provisional band colours are borderline for red-green colour blindness: `docs/viewer_findings.md` item 3.
+- The in-canvas labels are `aria-hidden` on purpose, see section 3a.
 - Touch: the canvas uses `touch-action: none`, so dragging on it rotates and does not scroll the page; leave some
   page margin around it on phones. Mouse wheel over the canvas zooms and does not scroll the page.
 - Not tested with a real screen reader; only the DOM contract (roles, live-region text) is tested.
@@ -271,8 +356,8 @@ Results of the final run on this branch (Node 22.22, Chromium 141, headless, Swi
 | `npm run validate` (web/scripts) | glTF validator 0 errors, 0 warnings on both models; all checks passed |
 | `npm run bands -- --check` | generated config is up to date |
 | `npm run typecheck` | no errors (strict, noUnusedLocals) |
-| `npm test` | 2 files, **47 tests passed** (pure logic: colour and desaturation maths, glow rule, selection state machine, emitter, key map, load fallback order and status, render budget, fps meter, tween and pulse, picking geometry, announcement text; plus manifest / `VesselId` / `.glb` consistency) |
-| `npm run test:e2e` | 1 file, **35 tests passed** in 126 s |
+| `npm test` | 2 files, **65 tests passed** (pure logic: colour and desaturation maths, glow rule, selection state machine, emitter, key map, load fallback order and status, render budget, fps meter, tween and pulse, picking geometry, announcement text; plus manifest / `VesselId` / `.glb` consistency) |
+| `npm run test:e2e` | 2 files, **51 tests passed** in 176 s |
 
 The 35 browser tests, by group: environment and loading (7: WebGL2 context on SwiftShader and antialiasing off, standard
 GLB with 23,283 triangles, lite by `lowPower` and by auto-detection, fallback to lite, fallback to the procedural heart
@@ -290,6 +375,21 @@ GL context is lost, no frame or rAF after dispose, 12 create/dispose cycles rais
 states rendered, viewed by hand, curated copies in `web/viewer-demo/screenshots/`); performance (6, the `TIMING` tests
 above).
 
+The legibility pass adds a second browser-test file, `e2e/appearance.e2e.test.ts` (16 tests), and 18 unit tests.
+Unit (`viewerLogic.test.ts`): CIE L*a*b* and delta E against textbook values, colour-vision simulation, the neutral palette
+constants (chroma, lightness, every band colour more saturated than the body), `bodyColor`, label text, label placement,
+collision spreading and spot choice. Browser: (1) every vessel colour against the body and against each other, for the
+config palette and the safe palette, normal vision and three deficiencies, light and dark page (the table in section 3a);
+the body against the `--viewer-bg` tokens; the body is muted (maximum chroma below 40 with all arteries unscored) and
+`bodyStyle: 'natural'` is warm where the default is cool; the overall glow does not turn the body red; (2) `vesselBoost`
+0 / 1 / 2 give 7,181 / 13,043 / 18,338 vessel pixels with identical triangle counts (23,283; lite 6,691); (3) labels: one
+chip per vessel with name and percent, `aria-hidden`, `pointer-events:none`, inside the container, no two chips overlapping;
+`'name'` and `'off'`; at 8 views around the heart every visible label has vessel-coloured pixels under its anchor and
+every label is hidden in some view (so hidden when occluded), they follow the camera and return on reset, they render with
+reduced motion, the selected chip is emphasised, dispose removes the overlay; (4) the ghost adds faint pixels from behind
+and `showHidden: false` removes them; (5) screenshot smoke test of 3 band combinations, both themes, back, each vessel
+selected, safe palette, lite, phone (no horizontal scroll). The existing 35 browser tests pass unchanged.
+
 `TIMING` tests depend on machine speed. They use floors far below the measured values (4 to 8 fps, 5 fps at 1080p),
 are configured to retry twice, and print what they measured; no other test is timing dependent. The measured numbers
 are written to `web/viewer-demo/dist/e2e/results.json`.
@@ -301,10 +401,17 @@ radius (now triangle-distance picking, 3 ms per pick); the heart-level glow comp
 bands have per-target cut points (now band first); the context-lost message stayed visible after restore because an
 inline `display` overrode the `hidden` attribute. Not tested: real GPUs, Safari, Firefox, a real screen reader, Node 20.
 
-Screenshots (`web/viewer-demo/screenshots/`): `front_standard`, `back_standard`, `selected_LAD`, `selected_LCX`,
-`bands_all_low`, `bands_all_moderate`, `bands_all_high`, `uncertainty_wide_high`, `dark_theme_selected_LCX`, `phone`,
-`lite_lowpower_selected_LAD`, `procedural_fallback_selected_RCA`. The back view shows the LCX only as a trace on the left
-edge (the left atrium covers its posterior course); select it to see it.
+Screenshots (`web/viewer-demo/screenshots/`, regenerated by the browser tests, viewed by hand): the original twelve
+(`front_standard`, `back_standard`, `selected_LAD`, `selected_LCX`, `selected_RCA`, `bands_all_low` / `moderate` / `high`,
+`uncertainty_wide_high`, `dark_theme_selected_LCX`, `phone`, `lite_lowpower_selected_LAD`,
+`procedural_fallback_selected_RCA`) now show the legibility pass, and the new set is the one to use for the demo video:
+`combo_hml_light` (LAD high, LCX moderate, RCA low), `combo_lhm_light` / `combo_lhm_dark`, `combo_mlh_light`,
+`combo_hml_dark`, `selected_LAD_hml`, `selected_LCX_hml`, `selected_RCA_hml`, `selected_LCX_dark`, `back_hml` (hidden
+arteries as ghosts), `safe_palette_hml`, `lite_hml`, `phone_hml`, and the app itself in `app_desktop_light`,
+`app_desktop_dark`, `app_phone_light`. `before/` holds the old front view, the old selected LAD (standard and lite) and the
+old app screenshot for comparison. Best for the video: `selected_LCX_hml` (the selected artery is unmistakable, its label
+and the other two stay readable), `combo_lhm_dark` and `combo_hml_light` (three bands at a glance in both themes).
+The back view still hides the LCX behind the left atrium; select it to bring it to the front.
 
 ## 10. Model assets and attribution
 
@@ -350,8 +457,13 @@ edge (the left atrium covers its posterior course); select it to see it.
   branch completeness and dominance were judged from renders, not by a clinician. The arteries are thin non-watertight
   surfaces, and the lite model's arteries are visibly blocky. Treat the picture as schematic. Valve leaflets are not in
   the model, so valve features have no anchor.
-- **LCX is on the back of the heart.** From the home view only its proximal part shows; select it (key `2`, or click
-  its label in the dashboard) and the camera turns to it.
+- **LCX is on the back of the heart.** The home view (turned 10 degrees further to the patient's left in the legibility
+  pass) shows its course along the left edge; the rest is behind the left atrium and shows only as the faint hidden-artery
+  ghost (full quality). Select it (key `2`, or click its label in the dashboard) and the camera turns to it.
+- **The lite model's arteries are fragmented.** Z-Anatomy's economy mesh (`heart_lite.glb`, the default on software GL)
+  breaks the arteries into disconnected pieces where the decimation cut them; the viewer lifts and thickens them but cannot
+  reconnect them (`docs/viewer_findings.md` item 8).
+- **Arteries are drawn wider than anatomy** (calibre exaggeration, `vesselBoost`); `0` turns it off.
 - **Left main is not coloured.** It belongs to two vessels and has no model output.
 - **No heartbeat animation and no 17-segment bullseye** (`docs/viewer_findings.md` item 7).
 - **Tested only in headless Chromium 141 on SwiftShader.** Not on real GPUs, Safari, Firefox, or Node 20 (tooling ran
