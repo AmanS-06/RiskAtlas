@@ -22,8 +22,8 @@ export function chromiumPath(): string {
 /** WebGL2 through ANGLE/SwiftShader: works with no GPU. */
 export const SOFTWARE_GL_ARGS = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--no-sandbox'];
 
-export async function startServer(): Promise<{ server: PreviewServer; url: string }> {
-  const outDir = path.join(demoRoot, 'dist', 'e2e'); // dist/ is gitignored
+export async function startServer(outName = 'e2e'): Promise<{ server: PreviewServer; url: string }> {
+  const outDir = path.join(demoRoot, 'dist', outName); // dist/ is gitignored; one folder per test file, since the build empties it
   await build({ configFile: path.join(demoRoot, 'vite.config.ts'), logLevel: 'warn', build: { outDir } });
   const server = await preview({ configFile: path.join(demoRoot, 'vite.config.ts'), logLevel: 'warn', build: { outDir }, preview: { port: 4174, strictPort: false, host: '127.0.0.1' } });
   const url = server.resolvedUrls?.local[0];

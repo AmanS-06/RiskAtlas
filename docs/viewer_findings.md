@@ -70,3 +70,37 @@ each has evidence so the owner can decide.
 - The CC BY-SA 4.0 attribution for the 3D heart model must be visible in the README and in the app's About / Credits
   page (`ASSETS_AND_LICENSES.md` has the exact text; `README.md` currently has none). The viewer lane may not edit the
   README or the app shell, so this is left for their owners. Without it the model's licence condition is not met.
+
+## 8. Legibility pass: issues found outside the viewer lane (not fixed)
+
+Found while making the arteries the visual focus (branch `claude/viewer-polish`). Evidence is in
+`web/viewer-demo/e2e/appearance.e2e.test.ts` results and `docs/viewer.md` section 3a.
+
+1. **`heart_lite.glb` has fragmented arteries.** The Z-Anatomy economy mesh (`web/scripts/source/zanatomy_heart_economy.glb`,
+   copied unchanged by `build_viewer_models.mjs`) breaks LAD, LCX and RCA into disconnected pieces where its decimation
+   cut them (1,668 vessel triangles against 8,030 in the standard model); parts also sit below the surface of the
+   decimated heart wall. Since the lite model is what runs on software GL (the app default there and the likely state of
+   a screen recording on a VM), the arteries look ragged. The viewer now lifts and slightly thickens them, which helps,
+   but the real fix is a better lite mesh: decimate the body only and keep the standard arteries (about 8k triangles,
+   still far below the 150k budget), or re-run a decimation that preserves boundaries. Owner of `web/scripts` and
+   `web/public/models3d`.
+2. **Config palette collapses under red-green deficiency in the rendered image, not only in the swatches.** Median
+   rendered pixel colours (lit and shaded) of the three bands give moderate-low delta E 6.2 (protanopia) and 9.8
+   (deuteranopia) and high-moderate 8.5 and 13.8, worse than the swatch numbers of item 3, because lighting shifts
+   amber toward the tan of the body. The app's colour-blind-safe palette keeps every pair at or above 17 (deuteranopia
+   crimson against orange) and usually above 30. Consider making the safe palette the default, or at least offering it
+   prominently next to the 3D view. Owner of `config/risk_bands.yaml` and `web/src/shared/theme.css`.
+3. **The web app's e2e selector `[data-vessel=LCX]` in `web/tests/e2e/run.mjs` assumes the stub viewer's SVG.** Any real
+   viewer markup that uses `data-vessel` is clicked by that test (it dispatches `click` and expects the dashboard to react),
+   which fails with a real canvas. The branch avoids the name (labels use `data-label`), but the test should be
+   conditioned on `svg` or on the stub, not on the attribute. Owner of `web/tests/e2e`.
+4. **`web/src/viewer/**` is excluded from the web app's `vitest` run** (`web/vite.config.ts` `test.exclude`), so
+   `cd web && npm test` does not run the viewer's unit tests; they run with `cd web/viewer-demo && npm test`. Easy to miss
+   in a CI that runs only `web/`.
+5. **One flaky app unit test under load.** `src/dashboard/Dashboard.test.tsx` "paused" case failed once
+   (`prob-CAD` still present) while another job was using the CPUs and passed on every rerun (3 of 3). Not related to
+   the viewer; probably a missing `await`/`waitFor` after the paused state.
+6. **`npm run lint` in `web/` lints `web/viewer-demo/dist`** (the ignore pattern `dist` only matches `web/dist`). After
+   any `npm run test:e2e` in `web/viewer-demo` the demo build output makes lint report about 1,500 errors, plus one
+   irregular-whitespace error in `web/viewer-demo/e2e/viewer.e2e.test.ts` line 487. Add `viewer-demo/dist` to the
+   eslint ignores.

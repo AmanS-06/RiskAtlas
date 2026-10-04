@@ -26,7 +26,25 @@ export interface HeartViewerOptions {
   lowPower?: boolean;
   /** No damping, no camera tweens, no pulse. Default: the OS prefers-reduced-motion setting. */
   reducedMotion?: boolean;
+  /**
+   * Colour of everything that is not a coronary artery. 'neutral' (default): a muted blue-grey, so the three risk colours are
+   * the only saturated colours in the scene. 'natural': the pink of the GLB. Never carries risk information.
+   */
+  bodyStyle?: BodyStyle;
+  /**
+   * Visual calibre exaggeration of the arteries: the vessel surface is pushed outward by `vesselBoost * 0.006` model units
+   * (heart ~1 unit wide), so thin branches stay visible at default zoom. Default 1; 0 draws the arteries at modelled size.
+   * Purely cosmetic: picking, anchors and the triangle budget are unaffected.
+   */
+  vesselBoost?: number;
+  /** In-canvas vessel labels (DOM, aria-hidden): 'risk' (default) = "LAD 76%", 'name' = "LAD", 'off'. Hidden for a vessel the heart wall fully hides. */
+  labels?: LabelMode;
+  /** Draw a faint see-through copy of arteries where the heart wall hides them, so all three stay visible from any side. Default: true, except in low-power mode (software GL), where the extra pass is skipped. */
+  showHidden?: boolean;
 }
+
+export type BodyStyle = 'neutral' | 'natural';
+export type LabelMode = 'off' | 'name' | 'risk';
 
 export type FallbackLevel = 'none' | 'lite' | 'procedural';
 

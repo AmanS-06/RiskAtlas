@@ -1,6 +1,6 @@
 // Pure logic of the viewer (no three.js, no DOM), so it is unit-testable without WebGL.
 
-import type { Band, FallbackLevel, OverallState, VesselId, VesselState } from './types';
+import type { Band, BodyStyle, FallbackLevel, LabelMode, OverallState, VesselId, VesselState } from './types';
 
 /** The vessels the viewer scores. Must equal the `mesh` names in config/manifest.yaml; checked against the loaded model's node names. */
 export const VESSEL_IDS: readonly VesselId[] = ['LAD', 'LCX', 'RCA'];
@@ -314,6 +314,157 @@ export const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 
 export function tweenProgress(elapsedMs: number, durationMs: number, reduced: boolean): number {
   if (reduced || durationMs <= 0) return 1;
   return easeInOutCubic(Math.min(1, Math.max(0, elapsedMs / durationMs)));
+}
+
+// ---- appearance: neutral body, vessel legibility ---------------------------
+
+/**
+ * Body colours of bodyStyle 'neutral': a muted slate blue-grey (chroma well below any band colour). Mid-dark on purpose: the three band colours span
+ * the lightness range of a mid-light body (amber and green sit at L* 62 to 70), whereas against a slate body each of them is lighter or
+ * more saturated, and it still shows against both the light and the dark app background. `chamber` = atria and ventricles, `other` = great vessels and everything else that is not a scored artery, `stem` = the unscored left main stem
+ * (a darker grey, so it reads as an artery without taking a risk colour). A viewer constant, not data: risk colours always come from the app (config/risk_bands.yaml).
+ * Measured against the three config band colours in the browser tests (pixel read-back, CIE76 delta E).
+ */
+export const BODY_NEUTRAL = { chamber: '#728092', other: '#909aaa', stem: '#4c5461' } as const;
+
+/** Vessel legibility. `inflate` = outward shift of the artery surface along its smooth normal, model units (the heart is ~1 unit wide;
+ *  arteries are 0.01 to 0.05 wide, so 0.006 about doubles the thinnest branches). `edge` = permanent dark outline thickness added on top of
+ *  inflate. `rim` = strength of the view-dependent rim light (fresnel) in the vessel's own, lightened colour. `ghost` = opacity of the
+ *  see-through copy drawn where the heart wall hides a vessel. `lift` = view-space shift toward the camera (model units) so an artery that is slightly buried in the heart surface still draws. `lowPowerScale` multiplies `lift` for the coarse lite model, whose arteries sit deeper in the surface. `proceduralScale` multiplies inflate and edge for the built-in schematic heart, whose arteries are much thinner. */
+export const VESSEL_LOOK: Readonly<{ inflate: number; edge: number; edgeColor: string; rim: number; ghost: number; lift: number; lowPowerScale: number; proceduralScale: number }> = { inflate: 0.006, edge: 0.0025, edgeColor: '#0c1016', rim: 0.45, ghost: 0.32, lift: 0.02, lowPowerScale: 1.5, proceduralScale: 0.35 };
+
+/** Colour of an artery that has no prediction yet. Neutral body: a light grey, clearly lighter than the slate body and without any hue, so it cannot be mistaken for a risk colour. */
+export const UNSCORED_VESSEL = { neutral: '#c9ced6', natural: '#9e9ea3' } as const;
+
+/** Share of the overall-glow chamber tint kept in the neutral body (the halo behind the heart carries the overall state; a strong tint would make the grey body pink again). */
+export const NEUTRAL_TINT_SHARE = 0.35;
+
+/** Colour of a body mesh. `natural` keeps the GLB colour (null = caller keeps its own). */
+export function bodyColor(style: BodyStyle, meshName: string): string | null {
+  if (style === 'natural') return null;
+  if (/atrium|ventricle/.test(meshName)) return BODY_NEUTRAL.chamber;
+  return /^left_coronary_artery$/.test(meshName) ? BODY_NEUTRAL.stem : BODY_NEUTRAL.other;
+}
+
+// ---- perceptual colour (CIE L*a*b*), colour-vision-deficiency simulation -----
+
+const toLin3 = (hex: string): [number, number, number] => {
+  const c = parseHex(hex);
+  return c ? [srgbToLinear(c.r), srgbToLinear(c.g), srgbToLinear(c.b)] : [0, 0, 0];
+};
+
+/** CIE L*a*b* (D65) of an sRGB colour given as hex or as 0..255 channels. */
+export function rgbToLab(rgb: string | readonly [number, number, number]): [number, number, number] {
+  const [r, g, b] = typeof rgb === 'string' ? toLin3(rgb) : (rgb.map((v) => srgbToLinear(v / 255)) as [number, number, number]);
+  const xyz = [
+    (0.4124564 * r + 0.3575761 * g + 0.1804375 * b) / 0.95047,
+    0.2126729 * r + 0.7151522 * g + 0.072175 * b,
+    (0.0193339 * r + 0.119192 * g + 0.9503041 * b) / 1.08883,
+  ];
+  const f = xyz.map((t) => (t > 216 / 24389 ? Math.cbrt(t) : ((24389 / 27) * t + 16) / 116));
+  return [116 * f[1] - 16, 500 * (f[0] - f[1]), 200 * (f[1] - f[2])];
+}
+
+/** CIE76 delta E (the measure used by web/scripts/cvd_check.mjs). Below about 20 two colours are hard to tell apart in a small, shaded patch. */
+export function deltaE(a: readonly [number, number, number], b: readonly [number, number, number]): number {
+  return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+}
+
+/** Machado et al. 2009, severity 1.0, applied in linear sRGB (same matrices as web/scripts/cvd_check.mjs). */
+export const CVD_MATRICES = {
+  protanopia: [[0.152286, 1.052583, -0.204868], [0.114503, 0.786281, 0.099216], [-0.003882, -0.048116, 1.051998]],
+  deuteranopia: [[0.367322, 0.860646, -0.227968], [0.280085, 0.672501, 0.047413], [-0.01182, 0.04294, 0.968881]],
+  tritanopia: [[1.255528, -0.076749, -0.178779], [-0.078411, 0.930809, 0.147602], [0.004733, 0.691367, 0.3039]],
+} as const;
+export type Vision = 'normal' | keyof typeof CVD_MATRICES;
+
+/** The colour as seen with the given colour-vision deficiency, 0..255 channels. */
+export function simulateVision(rgb: readonly [number, number, number], kind: Vision): [number, number, number] {
+  if (kind === 'normal') return [rgb[0], rgb[1], rgb[2]];
+  const lin = rgb.map((v) => srgbToLinear(v / 255));
+  return CVD_MATRICES[kind].map((row) => 255 * linearToSrgb(Math.min(1, Math.max(0, row[0] * lin[0] + row[1] * lin[1] + row[2] * lin[2])))) as [number, number, number];
+}
+
+// ---- in-canvas labels ---------------------------------------------------------
+
+/** Text of a vessel label. 'risk' adds the probability when the vessel has a state; null = no label. */
+export function labelText(id: VesselId, s: VesselState | undefined, mode: LabelMode): string | null {
+  if (mode === 'off') return null;
+  if (mode === 'risk' && s) return `${id} ${Math.round(clamp01(s.probability) * 100)}%`;
+  return id;
+}
+
+export interface LabelPlacement { x: number; y: number; angle: number; length: number }
+
+/**
+ * Where a label chip sits relative to its anchor on the artery: pushed `gap` px away from the heart's screen centre, so the
+ * chip does not cover the vessel it names, then clamped so the whole chip (w x h, centred on the returned point) stays inside the
+ * container. `angle` and `length` describe the leader line from the anchor to the chip centre.
+ */
+export function labelPlacement(anchor: { x: number; y: number }, centre: { x: number; y: number }, chip: { w: number; h: number }, box: { w: number; h: number }, gap = 26): LabelPlacement {
+  let dx = anchor.x - centre.x, dy = anchor.y - centre.y;
+  const d = Math.hypot(dx, dy);
+  if (d < 1e-6) { dx = 0; dy = -1; } else { dx /= d; dy /= d; }
+  // distance along (dx,dy) at which a chip of this size no longer overlaps the anchor point
+  const reach = Math.abs(dx) * chip.w / 2 + Math.abs(dy) * chip.h / 2 + gap * 0.45;
+  const clamp = (v: number, lo: number, hi: number) => (hi < lo ? (lo + hi) / 2 : Math.min(hi, Math.max(lo, v)));
+  const x = clamp(anchor.x + dx * reach, chip.w / 2 + 2, box.w - chip.w / 2 - 2);
+  const y = clamp(anchor.y + dy * reach, chip.h / 2 + 2, box.h - chip.h / 2 - 2);
+  return { x, y, angle: Math.atan2(y - anchor.y, x - anchor.x), length: Math.hypot(x - anchor.x, y - anchor.y) };
+}
+
+/**
+ * Picks the chip position among 8 directions x 3 distances around the anchor that covers the fewest obstacle points (screen positions of
+ * vessel vertices, so the chip does not hide any artery), does not overlap chips already placed, stays inside the box, and otherwise
+ * prefers the direction away from the heart centre and a short leader line. Greedy, deterministic.
+ */
+export function chooseLabelSpot(anchor: { x: number; y: number }, centre: { x: number; y: number }, chip: { w: number; h: number }, box: { w: number; h: number },
+  obstacles: readonly { x: number; y: number }[], taken: readonly ChipRect[] = [], gap = 26): LabelPlacement {
+  const outward = Math.atan2(anchor.y - centre.y, anchor.x - centre.x);
+  let best: { x: number; y: number; cost: number } | null = null;
+  const m = 3; // margin around the chip that must be free of vessel pixels
+  for (let k = 0; k < 8; k++) {
+    const a = (k * Math.PI) / 4, dx = Math.cos(a), dy = Math.sin(a);
+    const reach = Math.abs(dx) * chip.w / 2 + Math.abs(dy) * chip.h / 2 + gap * 0.45;
+    for (const extra of [0, 16, 36]) {
+      const cx0 = anchor.x + dx * (reach + extra), cy0 = anchor.y + dy * (reach + extra);
+      const cx = Math.min(box.w - chip.w / 2 - 2, Math.max(chip.w / 2 + 2, cx0)), cy = Math.min(box.h - chip.h / 2 - 2, Math.max(chip.h / 2 + 2, cy0));
+      let cost = Math.hypot(cx - cx0, cy - cy0) * 0.5 + (1 - Math.cos(a - outward)) * 4 + extra * 0.05;
+      for (const o of obstacles) if (Math.abs(o.x - cx) < chip.w / 2 + m && Math.abs(o.y - cy) < chip.h / 2 + m) cost += 1;
+      for (const t of taken) if (Math.abs(t.x - cx) < (t.w + chip.w) / 2 + 2 && Math.abs(t.y - cy) < (t.h + chip.h) / 2 + 2) cost += 60;
+      if (!best || cost < best.cost) best = { x: cx, y: cy, cost };
+    }
+  }
+  const b = best!;
+  return { x: b.x, y: b.y, angle: Math.atan2(b.y - anchor.y, b.x - anchor.x), length: Math.hypot(b.x - anchor.x, b.y - anchor.y) };
+}
+
+export interface ChipRect { x: number; y: number; w: number; h: number } // centre and size
+
+/**
+ * Pushes overlapping label chips apart (vertically, the smaller overlap axis of a horizontal label row) and keeps them inside `box`.
+ * Order is stable: with equal y the earlier chip stays above. Returns new centres; inputs are not modified.
+ */
+export function separateChips(chips: readonly ChipRect[], box: { w: number; h: number }, pad = 3): { x: number; y: number }[] {
+  const out = chips.map((c) => ({ x: c.x, y: c.y }));
+  const lo = (c: ChipRect) => c.h / 2 + 2, hi = (c: ChipRect) => box.h - c.h / 2 - 2;
+  for (let pass = 0; pass < 8; pass++) {
+    let moved = false;
+    for (let i = 0; i < chips.length; i++) {
+      for (let j = i + 1; j < chips.length; j++) {
+        const dx = Math.abs(out[i].x - out[j].x), dy = out[j].y - out[i].y;
+        const needX = (chips[i].w + chips[j].w) / 2 + pad, needY = (chips[i].h + chips[j].h) / 2 + pad;
+        if (dx >= needX || Math.abs(dy) >= needY) continue;
+        const push = (needY - Math.abs(dy)) / 2 + 0.5;
+        const dir = dy >= 0 ? 1 : -1; // j goes further the way it already lies from i
+        out[i].y = Math.min(hi(chips[i]), Math.max(lo(chips[i]), out[i].y - dir * push));
+        out[j].y = Math.min(hi(chips[j]), Math.max(lo(chips[j]), out[j].y + dir * push));
+        moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+  return out;
 }
 
 // ---- text ------------------------------------------------------------------

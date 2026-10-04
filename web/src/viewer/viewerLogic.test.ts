@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   Emitter, FrameMeter, SelectionModel, UNCERTAINTY, VESSEL_IDS, applyUncertainty, clamp01, computePixelRatio, describeSummary, describeVessel,
   desaturationAmount, easeInOutCubic, fitDistance, glowHalo, glowSize, glowTint, isSoftwareRenderer, isVesselId, keyAction, luminance, missingVesselNodes,
-  overallGlow, parseHex, planLoadSteps, pointTriangleDistance, pulseActive, pulseExtra, renderBudget, runLoadChain, toHex, tweenProgress, withTimeout, EMISSIVE, PULSE,
+  overallGlow, parseHex, planLoadSteps, BODY_NEUTRAL, NEUTRAL_TINT_SHARE, UNSCORED_VESSEL, VESSEL_LOOK, bodyColor, chooseLabelSpot, deltaE, labelPlacement, separateChips, labelText, rgbToLab, simulateVision, pointTriangleDistance, pulseActive, pulseExtra, renderBudget, runLoadChain, toHex, tweenProgress, withTimeout, EMISSIVE, PULSE,
 } from './viewerLogic';
 import type { VesselState } from './types';
 
@@ -320,5 +320,136 @@ describe('pointTriangleDistance (near-miss picking)', () => {
   it('works for either winding and for a degenerate (collinear) triangle', () => {
     expect(pointTriangleDistance(2, 2, 0, 0, 0, 10, 10, 0)).toBe(0);
     expect(pointTriangleDistance(5, 3, 0, 0, 10, 0, 20, 0)).toBeCloseTo(3, 12);
+  });
+});
+
+describe('perceptual colour (CIE L*a*b*, CIE76)', () => {
+  it('maps white, black and mid grey to the textbook values', () => {
+    const [lw, aw, bw] = rgbToLab('#ffffff');
+    expect(lw).toBeCloseTo(100, 1); expect(aw).toBeCloseTo(0, 1); expect(bw).toBeCloseTo(0, 1);
+    expect(rgbToLab('#000000')[0]).toBeCloseTo(0, 5);
+    expect(rgbToLab('#808080')[0]).toBeCloseTo(53.59, 1);
+    expect(rgbToLab([255, 0, 0]).map((v) => Math.round(v))).toEqual([53, 80, 67]); // sRGB red under D65
+  });
+  it('deltaE is a symmetric distance, zero for identical colours', () => {
+    const a = rgbToLab('#2E9E6A'), b = rgbToLab('#D64545');
+    expect(deltaE(a, a)).toBe(0);
+    expect(deltaE(a, b)).toBeCloseTo(deltaE(b, a), 12);
+    expect(deltaE(rgbToLab('#000'), rgbToLab('#fff'))).toBeCloseTo(100, 1);
+  });
+  it('colour-vision simulation: normal is the identity, greys stay grey, red and green collapse for deuteranopia', () => {
+    expect(simulateVision([10, 120, 250], 'normal')).toEqual([10, 120, 250]);
+    for (const k of ['protanopia', 'deuteranopia', 'tritanopia'] as const) {
+      const g = simulateVision([128, 128, 128], k);
+      for (const c of g) expect(Math.abs(c - 128)).toBeLessThan(2);
+    }
+    const red = rgbToLab(simulateVision([0xd6, 0x45, 0x45], 'deuteranopia')), green = rgbToLab(simulateVision([0x2e, 0x9e, 0x6a], 'deuteranopia'));
+    expect(deltaE(red, green)).toBeLessThan(deltaE(rgbToLab('#D64545'), rgbToLab('#2E9E6A'))); // same direction as web/scripts/cvd_check.mjs
+  });
+});
+
+describe('neutral body colours', () => {
+  const chroma = (hex: string) => { const [, a, b] = rgbToLab(hex); return Math.hypot(a, b); };
+  it('are muted (chroma below 12), and an unscored artery is much lighter than the body and hueless, so it reads without a risk colour', () => {
+    for (const c of Object.values(BODY_NEUTRAL)) expect(chroma(c)).toBeLessThan(12);
+    expect(rgbToLab(UNSCORED_VESSEL.neutral)[0] - rgbToLab(BODY_NEUTRAL.chamber)[0]).toBeGreaterThan(25);
+    expect(chroma(UNSCORED_VESSEL.neutral)).toBeLessThan(6);
+  });
+  it('every band colour of config/risk_bands.yaml and of the colour-blind-safe palette is far more saturated than the body', () => {
+    for (const c of ['#2E9E6A', '#E0A030', '#D64545', '#e89a2e', '#8e0f35']) expect(chroma(c)).toBeGreaterThan(chroma(BODY_NEUTRAL.chamber) + 25);
+  });
+  it('bodyColor: natural keeps the GLB colour (null); neutral picks chamber / stem / other by mesh name', () => {
+    expect(bodyColor('natural', 'left_ventricle')).toBeNull();
+    expect(bodyColor('neutral', 'left_ventricle')).toBe(BODY_NEUTRAL.chamber);
+    expect(bodyColor('neutral', 'right_atrium')).toBe(BODY_NEUTRAL.chamber);
+    expect(bodyColor('neutral', 'left_coronary_artery')).toBe(BODY_NEUTRAL.stem);
+    expect(bodyColor('neutral', 'ascending_aorta')).toBe(BODY_NEUTRAL.other);
+  });
+  it('constants stay inside sane ranges (a typo here would silently wreck the look)', () => {
+    expect(VESSEL_LOOK.inflate).toBeGreaterThan(0); expect(VESSEL_LOOK.inflate).toBeLessThan(0.02);
+    expect(VESSEL_LOOK.lift).toBeLessThan(0.05);
+    expect(VESSEL_LOOK.ghost).toBeGreaterThan(0.1); expect(VESSEL_LOOK.ghost).toBeLessThan(0.6);
+    expect(NEUTRAL_TINT_SHARE).toBeGreaterThan(0); expect(NEUTRAL_TINT_SHARE).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('labels', () => {
+  it('labelText: off = none, name = id, risk = id and rounded percent when a state exists', () => {
+    expect(labelText('LAD', vs(0.764), 'off')).toBeNull();
+    expect(labelText('LAD', vs(0.764), 'name')).toBe('LAD');
+    expect(labelText('LAD', vs(0.764), 'risk')).toBe('LAD 76%');
+    expect(labelText('LCX', undefined, 'risk')).toBe('LCX');
+    expect(labelText('RCA', vs(2), 'risk')).toBe('RCA 100%'); // out-of-range probabilities are clamped, like everywhere else
+  });
+  const box = { w: 800, h: 500 }, chip = { w: 70, h: 20 };
+  it('labelPlacement pushes the chip away from the heart centre, so it does not sit on its own vessel', () => {
+    const right = labelPlacement({ x: 500, y: 250 }, { x: 400, y: 250 }, chip, box);
+    expect(right.x).toBeGreaterThan(500 + chip.w / 2 - 1); expect(right.y).toBeCloseTo(250, 5);
+    const above = labelPlacement({ x: 400, y: 100 }, { x: 400, y: 250 }, chip, box);
+    expect(above.y).toBeLessThan(100 - chip.h / 2 + 1);
+    expect(right.length).toBeGreaterThan(chip.w / 2);
+  });
+  it('labelPlacement keeps the whole chip inside the container', () => {
+    for (const a of [{ x: 5, y: 5 }, { x: 795, y: 495 }, { x: 790, y: 10 }, { x: 400, y: 250 }]) {
+      const p = labelPlacement(a, { x: 400, y: 250 }, chip, box);
+      expect(p.x - chip.w / 2).toBeGreaterThanOrEqual(0); expect(p.x + chip.w / 2).toBeLessThanOrEqual(box.w);
+      expect(p.y - chip.h / 2).toBeGreaterThanOrEqual(0); expect(p.y + chip.h / 2).toBeLessThanOrEqual(box.h);
+      expect(Number.isFinite(p.angle) && Number.isFinite(p.length)).toBe(true);
+    }
+  });
+  it('labelPlacement survives an anchor exactly at the centre and a container smaller than the chip', () => {
+    expect(Number.isFinite(labelPlacement({ x: 100, y: 100 }, { x: 100, y: 100 }, chip, box).x)).toBe(true);
+    expect(Number.isFinite(labelPlacement({ x: 10, y: 10 }, { x: 0, y: 0 }, chip, { w: 40, h: 10 }).y)).toBe(true);
+  });
+});
+
+describe('separateChips', () => {
+  const box = { w: 600, h: 300 };
+  const overlap = (a: { x: number; y: number }, b: { x: number; y: number }, w = 70, h = 20) => Math.abs(a.x - b.x) < w && Math.abs(a.y - b.y) < h;
+  it('leaves chips that do not overlap exactly where they are', () => {
+    const chips = [{ x: 100, y: 50, w: 70, h: 20 }, { x: 300, y: 50, w: 70, h: 20 }, { x: 100, y: 150, w: 70, h: 20 }];
+    expect(separateChips(chips, box)).toEqual([{ x: 100, y: 50 }, { x: 300, y: 50 }, { x: 100, y: 150 }]);
+  });
+  it('pushes overlapping chips apart vertically, keeps their order, and does not move them sideways', () => {
+    const chips = [{ x: 200, y: 100, w: 70, h: 20 }, { x: 210, y: 104, w: 70, h: 20 }, { x: 190, y: 98, w: 70, h: 20 }];
+    const out = separateChips(chips, box);
+    for (let i = 0; i < out.length; i++) for (let j = i + 1; j < out.length; j++) expect(overlap(out[i], out[j])).toBe(false);
+    out.forEach((o, i) => expect(o.x).toBe(chips[i].x));
+  });
+  it('keeps chips inside the container even when pushed against an edge, and handles identical positions', () => {
+    const chips = [{ x: 100, y: 12, w: 70, h: 20 }, { x: 100, y: 12, w: 70, h: 20 }];
+    const out = separateChips(chips, box);
+    for (const o of out) { expect(o.y - 10).toBeGreaterThanOrEqual(0); expect(o.y + 10).toBeLessThanOrEqual(box.h); }
+    expect(overlap(out[0], out[1])).toBe(false);
+  });
+  it('does not mutate its input and returns an empty list for no chips', () => {
+    const chips = [{ x: 1, y: 1, w: 10, h: 10 }, { x: 2, y: 2, w: 10, h: 10 }];
+    const copy = JSON.stringify(chips);
+    separateChips(chips, box);
+    expect(JSON.stringify(chips)).toBe(copy);
+    expect(separateChips([], box)).toEqual([]);
+  });
+});
+
+describe('chooseLabelSpot', () => {
+  const box = { w: 600, h: 300 }, chip = { w: 70, h: 20 };
+  it('goes away from the heart centre when nothing is in the way', () => {
+    const p = chooseLabelSpot({ x: 300, y: 150 }, { x: 200, y: 150 }, chip, box, []);
+    expect(p.x).toBeGreaterThan(300 + chip.w / 2 - 1);
+    expect(Math.abs(p.y - 150)).toBeLessThan(1);
+  });
+  it('avoids covering vessel points: a vessel running outward pushes the chip to another side', () => {
+    const vessel = Array.from({ length: 60 }, (_, i) => ({ x: 300 + i * 2, y: 150 }));
+    const p = chooseLabelSpot({ x: 300, y: 150 }, { x: 200, y: 150 }, chip, box, vessel);
+    const covers = vessel.some((o) => Math.abs(o.x - p.x) < chip.w / 2 + 3 && Math.abs(o.y - p.y) < chip.h / 2 + 3);
+    expect(covers).toBe(false);
+  });
+  it('does not land on a chip that is already placed, and stays inside the box', () => {
+    const taken = [{ x: 345, y: 150, w: 70, h: 20 }];
+    const p = chooseLabelSpot({ x: 300, y: 150 }, { x: 200, y: 150 }, chip, box, [], taken);
+    expect(Math.abs(p.x - 345) < 72 && Math.abs(p.y - 150) < 22).toBe(false);
+    const edge = chooseLabelSpot({ x: 598, y: 298 }, { x: 300, y: 150 }, chip, box, []);
+    expect(edge.x + chip.w / 2).toBeLessThanOrEqual(box.w); expect(edge.y + chip.h / 2).toBeLessThanOrEqual(box.h);
+    expect(Number.isFinite(edge.angle + edge.length)).toBe(true);
   });
 });

@@ -8,26 +8,30 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import type { AnchorSpec, FallbackLevel, HeartViewerOptions, OverallState, ScreenAnchor, ViewerStatus, VesselId, VesselState } from './types';
+import type { AnchorSpec, BodyStyle, FallbackLevel, HeartViewerOptions, LabelMode, OverallState, ScreenAnchor, ViewerStatus, VesselId, VesselState } from './types';
 import {
-  ARIA_LABEL, EMISSIVE, Emitter, FrameMeter, SelectionModel, VESSEL_IDS, applyUncertainty, computePixelRatio, describeSummary,
-  describeVessel, fitDistance, GLOW, glowHalo, glowSize, glowTint, isSoftwareRenderer, isVesselId, keyAction, missingVesselNodes, overallGlow, parseHex,
+  ARIA_LABEL, EMISSIVE, Emitter, FrameMeter, NEUTRAL_TINT_SHARE, SelectionModel, UNSCORED_VESSEL, VESSEL_IDS, VESSEL_LOOK, applyUncertainty, bodyColor, computePixelRatio, describeSummary,
+  describeVessel, fitDistance, GLOW, glowHalo, glowSize, glowTint, isSoftwareRenderer, isVesselId, keyAction, labelText, missingVesselNodes, overallGlow, parseHex,
   planLoadSteps, pointTriangleDistance, pulseActive, pulseExtra, renderBudget, runLoadChain, tweenProgress, withTimeout,
 } from './viewerLogic';
 import type { LoadStep } from './viewerLogic';
 import { buildProceduralHeart } from './procedural';
+import { LabelOverlay } from './labels';
 
-export type { Band, VesselId, VesselState, OverallState, HeartViewerOptions, ViewerStatus, FallbackLevel, AnchorSpec, ScreenAnchor } from './types';
+export type { Band, VesselId, VesselState, OverallState, HeartViewerOptions, ViewerStatus, FallbackLevel, AnchorSpec, ScreenAnchor, BodyStyle, LabelMode } from './types';
 
 type SurfaceMaterial = THREE.MeshStandardMaterial | THREE.MeshLambertMaterial;
 
 const FOV = 35;
-const HOME_DIR = new THREE.Vector3(0.5, 0.3, 1).normalize(); // front, a little from the patient's left and above, so the LCX groove shows
+const HOME_DIR = new THREE.Vector3(0.85, 0.3, 1).normalize(); // front-left oblique, from a little above: LAD and RCA on the front face, the LCX groove on the left edge (all three in view)
 const CLICK_SLOP_PX = 5;
 const PICK_RADIUS_PX = { mouse: 6, touch: 14 };
 const LOAD_TIMEOUT_MS = 20000;
 const TWEEN_MS = 500;
-const HULL = { outer: 0.017, inner: 0.009 }; // outline thickness in model units (the heart is ~1 unit wide)
+const HULL = { outer: 0.017, inner: 0.009 }; // selection outline thickness in model units (the heart is ~1 unit wide), on top of the vessel inflation
+const LABEL_SAMPLES = 20; // candidate points per vessel for its in-canvas label
+const LABEL_MIN_MS = 100; // labels are re-placed at most this often while the camera moves (a trailing update follows), keeping the occlusion rays off the frame budget
+const LABEL_TOLERANCE = 0.03; // a body hit this much in front of a point still counts as the point being visible (arteries sit partly in the surface)
 
 interface Probe { webgl: boolean; software: boolean; renderer: string }
 let probeCache: Probe | null = null;
@@ -52,6 +56,10 @@ interface VesselEntry {
   parts: THREE.Mesh[];
   material: SurfaceMaterial;
   hulls: { outer: THREE.Mesh; inner: THREE.Mesh }[];
+  ghosts: THREE.Mesh[]; // see-through copy, drawn only where the heart wall hides the vessel
+  samples: { p: THREE.Vector3; out: THREE.Vector3; d: number }[]; // label candidates, spread over the vessel; d = distance to the vessel's centroid (labels prefer the trunk)
+  outline: THREE.Vector3[]; // a sparse set of the vessel's vertices; the label chips keep clear of them
+  labelAt: number; // index of the sample the label sits on (kept while it stays visible, so the label does not jump)
   soup: { pos: Float32Array; idx: Uint32Array }; // world-space triangles of all parts, for near-miss picking
   state?: VesselState;
 }
@@ -62,11 +70,37 @@ interface AnchorPoint { point: THREE.Vector3; outward: THREE.Vector3 }
 
 interface Tween { start: number; dur: number; d0: THREE.Vector3; d1: THREE.Vector3; r0: number; r1: number; t0: THREE.Vector3; t1: THREE.Vector3 }
 
-const hullMaterial = (hex: string, thickness: number) =>
+/** Vessel look on a standard/lambert material: surface pushed out along its smooth normal (calibre exaggeration) and a rim light in the vessel's own lightened colour. */
+function patchVesselMaterial(m: SurfaceMaterial, uniforms: { inflate: { value: number }; rim: { value: number }; lift: { value: number } }): void {
+  m.onBeforeCompile = (shader) => {
+    shader.uniforms.uInflate = uniforms.inflate;
+    shader.uniforms.uRim = uniforms.rim;
+    shader.uniforms.uLift = uniforms.lift;
+    shader.vertexShader = 'uniform float uInflate; uniform float uLift;\n' + shader.vertexShader
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n\ttransformed += normalize(objectNormal) * uInflate;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\n\tmvPosition.z += uLift; gl_Position = projectionMatrix * mvPosition; // toward the camera: an artery slightly buried in the surface (decimated models) still shows');
+    shader.fragmentShader = 'uniform float uRim;\n' + shader.fragmentShader.replace('#include <emissivemap_fragment>',
+      '#include <emissivemap_fragment>\n\t{ float rim = pow(1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0), 2.0); totalEmissiveRadiance += mix(diffuseColor.rgb, vec3(1.0), 0.25) * rim * uRim; }');
+  };
+  m.customProgramCacheKey = () => 'riskatlas-vessel-v1';
+}
+
+const ghostMaterial = (inflate: { value: number }, lift: { value: number }) =>
+  new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    depthFunc: THREE.GreaterDepth, // only where something nearer (the heart wall) is already in the depth buffer
+    polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, // keeps the vessel's own front faces from ghosting over themselves
+    uniforms: { uInflate: inflate, uLift: lift, uColor: { value: new THREE.Color('#9e9ea3') }, uOpacity: { value: VESSEL_LOOK.ghost } },
+    vertexShader: 'uniform float uInflate; uniform float uLift; void main() { vec3 p = position + normalize(normal) * uInflate; vec4 mv = modelViewMatrix * vec4(p, 1.0); mv.z += uLift; gl_Position = projectionMatrix * mv; }',
+    fragmentShader: 'uniform vec3 uColor; uniform float uOpacity; void main() { gl_FragColor = vec4(uColor, uOpacity);\n#include <colorspace_fragment>\n}',
+  });
+
+const hullMaterial = (hex: string, thickness: number, lift: { value: number }) =>
   new THREE.ShaderMaterial({
     side: THREE.BackSide,
-    uniforms: { uThickness: { value: thickness }, uColor: { value: new THREE.Color(hex) } },
-    vertexShader: 'uniform float uThickness; void main() { vec3 p = position + normalize(normal) * uThickness; gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }',
+    uniforms: { uThickness: { value: thickness }, uLift: lift, uColor: { value: new THREE.Color(hex) } },
+    vertexShader: 'uniform float uThickness; uniform float uLift; void main() { vec3 p = position + normalize(normal) * uThickness; vec4 mv = modelViewMatrix * vec4(p, 1.0); mv.z += uLift; gl_Position = projectionMatrix * mv; }',
     fragmentShader: 'uniform vec3 uColor; void main() { gl_FragColor = vec4(uColor, 1.0);\n#include <colorspace_fragment>\n}',
   });
 
@@ -85,6 +119,14 @@ export class HeartViewer {
   private readonly lowPower: boolean;
   private readonly reduced: boolean;
   private readonly probe: Probe;
+  private readonly bodyStyle: BodyStyle;
+  private readonly labelMode: LabelMode;
+  private readonly showHidden: boolean;
+  private readonly boost: number;
+  private readonly look = { inflate: { value: 0 }, rim: { value: VESSEL_LOOK.rim }, lift: { value: VESSEL_LOOK.lift } };
+  private labels: LabelOverlay | null = null;
+  private lastLabelAt = -Infinity;
+  private labelTimer: ReturnType<typeof setTimeout> | 0 = 0;
 
   private renderer: THREE.WebGLRenderer | null = null;
   private canvas: HTMLCanvasElement | null = null;
@@ -143,6 +185,12 @@ export class HeartViewer {
     this.lowPower = opts.lowPower ?? this.probe.software;
     this.reduced = opts.reducedMotion ?? (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
     this.status = { loaded: false, usingFallback: 'none', webgl: false, triangles: 0 };
+    this.bodyStyle = opts.bodyStyle === 'natural' ? 'natural' : 'neutral';
+    this.labelMode = opts.labels === 'off' || opts.labels === 'name' ? opts.labels : 'risk';
+    this.showHidden = opts.showHidden ?? !this.lowPower; // an extra transparent pass over every artery: skipped on software GL unless asked for
+    this.boost = typeof opts.vesselBoost === 'number' && Number.isFinite(opts.vesselBoost) ? Math.min(4, Math.max(0, opts.vesselBoost)) : 1;
+    this.look.inflate.value = VESSEL_LOOK.inflate * this.boost;
+    this.look.lift.value = VESSEL_LOOK.lift * (this.lowPower ? VESSEL_LOOK.lowPowerScale : 1);
 
     const c = this.container;
     this.savedAttrs = { role: c.getAttribute('role'), label: c.getAttribute('aria-label'), tabindex: c.getAttribute('tabindex'), position: c.style.position };
@@ -276,6 +324,10 @@ export class HeartViewer {
     }
     this.renderer = null;
     this.canvas = null;
+    if (this.labelTimer) clearTimeout(this.labelTimer);
+    this.labelTimer = 0;
+    this.labels?.dispose();
+    this.labels = null;
     this.liveEl.remove();
     this.fallbackEl?.remove();
     this.selectEmitter.clear();
@@ -398,28 +450,51 @@ export class HeartViewer {
       return out;
     };
     const vesselMeshes = new Set<THREE.Mesh>();
+    // the built-in schematic heart has much thinner arteries (radius 0.005 to 0.024) than the GLB: scale the look down so outlines do not swallow them
+    const detail = level === 'procedural' ? VESSEL_LOOK.proceduralScale : 1;
+    this.look.inflate.value = VESSEL_LOOK.inflate * this.boost * detail;
+    const inflate = this.look.inflate.value;
+    const edgeWidth = VESSEL_LOOK.edge * detail;
     for (const id of VESSEL_IDS) {
       const parts = nodeMeshes(id);
       const material = makeMat(parts[0].material as THREE.Material, THREE.DoubleSide);
+      patchVesselMaterial(material, this.look);
+      const ghostMat = this.showHidden ? ghostMaterial(this.look.inflate, this.look.lift) : null;
+      const ghosts: THREE.Mesh[] = [];
       const hulls = parts.map((p) => {
         vesselMeshes.add(p);
         disposeMaterials(p.material);
         p.material = material;
-        const hullGeometry = weldedForOutline(p.geometry); // smooth normals, so the expanded shell does not tear at split vertices
-        const outer = new THREE.Mesh(hullGeometry, hullMaterial('#101010', HULL.outer));
-        const inner = new THREE.Mesh(hullGeometry, hullMaterial('#ffffff', HULL.inner));
+        // Smooth normals (welded by position): the inflated surface, the outlines and the ghost all follow them without tearing at split vertices.
+        // The triangle list is unchanged, only vertices are shared; the part itself is drawn from the welded geometry.
+        const hullGeometry = weldedForOutline(p.geometry);
+        p.geometry.dispose();
+        p.geometry = hullGeometry;
+        const edge = new THREE.Mesh(hullGeometry, hullMaterial(VESSEL_LOOK.edgeColor, inflate + edgeWidth, this.look.lift)); // permanent thin dark outline
+        const outer = new THREE.Mesh(hullGeometry, hullMaterial('#101010', inflate + HULL.outer * detail, this.look.lift));
+        const inner = new THREE.Mesh(hullGeometry, hullMaterial('#ffffff', inflate + HULL.inner * detail, this.look.lift));
         outer.visible = inner.visible = false;
-        outer.userData.hull = inner.userData.hull = true;
-        p.add(outer, inner);
+        edge.userData.hull = outer.userData.hull = inner.userData.hull = true;
+        edge.visible = !this.lowPower; // one more pass over every artery: skipped on software GL (the dark body already outlines the arteries)
+        p.add(edge, outer, inner);
+        if (ghostMat) {
+          const g = new THREE.Mesh(hullGeometry, ghostMat);
+          g.renderOrder = 5;
+          g.userData.hull = true;
+          p.add(g);
+          ghosts.push(g);
+        }
         return { outer, inner };
       });
-      this.vessels.set(id, { id, parts, material, hulls, soup: triangleSoup(parts) });
+      this.vessels.set(id, { id, parts, material, hulls, ghosts, samples: [], outline: [], labelAt: -1, soup: triangleSoup(parts) });
     }
     const bodies: BodyEntry[] = [];
     root.traverse((o) => {
       const m = o as THREE.Mesh;
       if (!m.isMesh || vesselMeshes.has(m) || m.userData.hull) return;
       const material = makeMat(m.material as THREE.Material, THREE.DoubleSide);
+      const tint = bodyColor(this.bodyStyle, m.name);
+      if (tint) material.color.set(tint);
       disposeMaterials(m.material);
       m.material = material;
       bodies.push({ mesh: m, material, chamber: /atrium|ventricle/.test(m.name) });
@@ -432,6 +507,11 @@ export class HeartViewer {
     for (const b of bodies) if (b.chamber) chambers.expandByObject(b.mesh);
     this.heartCentre = (chambers.isEmpty() ? this.bounds : chambers).getCenter(new THREE.Vector3());
     this.radius = this.bounds.getBoundingSphere(new THREE.Sphere()).radius;
+    for (const v of this.vessels.values()) {
+      v.samples = labelSamples(v.soup.pos, this.heartCentre);
+      const n = v.soup.pos.length / 3, stride = Math.max(1, Math.floor(n / 160));
+      for (let i = 0; i < n; i += stride) v.outline.push(new THREE.Vector3(v.soup.pos[i * 3], v.soup.pos[i * 3 + 1], v.soup.pos[i * 3 + 2]));
+    }
     if (!this.lowPower) this.createGlow();
     if (this.controls) this.controls.maxDistance = this.radius * 6;
 
@@ -498,9 +578,12 @@ export class HeartViewer {
         const hex = applyUncertainty(s.color, s.uncertaintyWidth);
         v.material.color.set(hex);
         v.material.emissive.set(hex);
+        for (const g of v.ghosts) (g.material as THREE.ShaderMaterial).uniforms.uColor.value.set(hex);
       } else {
-        v.material.color.set('#9e9ea3');
+        const grey = this.bodyStyle === 'neutral' ? UNSCORED_VESSEL.neutral : UNSCORED_VESSEL.natural;
+        v.material.color.set(grey);
         v.material.emissive.set('#000000');
+        for (const g of v.ghosts) (g.material as THREE.ShaderMaterial).uniforms.uColor.value.set(grey);
       }
       v.state = s;
     }
@@ -525,7 +608,8 @@ export class HeartViewer {
       const hovered = b.mesh === this.hoverBody;
       if (g) {
         b.material.emissive.set(g.color);
-        b.material.emissiveIntensity = glowTint(g.probability) * (this.glow ? 1 : GLOW.lowPowerTintBoost) + (hovered ? 0.08 : 0); // no halo in low-power mode: stronger tint instead
+        const share = this.bodyStyle === 'neutral' ? NEUTRAL_TINT_SHARE : 1; // a strong tint would turn the neutral body pink again; the halo carries the overall state
+        b.material.emissiveIntensity = glowTint(g.probability) * share * (this.glow ? 1 : GLOW.lowPowerTintBoost) + (hovered ? 0.08 : 0); // no halo in low-power mode: stronger tint instead
       } else {
         b.material.emissive.set('#ffffff');
         b.material.emissiveIntensity = hovered ? 0.1 : 0;
@@ -703,6 +787,9 @@ export class HeartViewer {
     this.updateGlowPlacement();
     this.renderer.render(this.scene, this.camera);
     this.emitAnchors();
+    const now = performance.now();
+    if (now - this.lastLabelAt >= LABEL_MIN_MS) this.updateLabels();
+    else if (!this.labelTimer) this.labelTimer = setTimeout(() => { this.labelTimer = 0; this.updateLabels(); }, LABEL_MIN_MS);
   }
 
   private onContextLost = (e: Event): void => {
@@ -881,6 +968,51 @@ export class HeartViewer {
     e.preventDefault();
   };
 
+  // ---- in-canvas labels -----------------------------------------------------------------------------------
+
+  /** Is `p` (a point on a vessel) in view: inside the frustum, on the camera-facing side of the heart, and not behind the heart wall? */
+  private pointVisible(p: THREE.Vector3, out: THREE.Vector3, ndc: THREE.Vector3): boolean {
+    ndc.copy(p).project(this.camera);
+    if (ndc.z >= 1 || Math.abs(ndc.x) > 0.96 || Math.abs(ndc.y) > 0.96) return false;
+    const toCam = this.camera.position.clone().sub(p);
+    const dist = toCam.length();
+    if (out.dot(toCam.divideScalar(dist)) < 0.05) return false; // far hemisphere: cheap rejection before the ray
+    this.raycaster.set(this.camera.position, p.clone().sub(this.camera.position).normalize());
+    const hit = this.raycaster.intersectObjects(this.bodies.map((b) => b.mesh), false)[0];
+    return !hit || hit.distance >= dist - LABEL_TOLERANCE;
+  }
+
+  /** Move each vessel's label to a visible point of the vessel (the same point while it stays visible), or hide it. Cheap when nothing changed. */
+  private updateLabels(): void {
+    if (this.disposed || this.labelMode === 'off' || !this.model || !this.canvas || this.contextLost) return;
+    this.lastLabelAt = performance.now();
+    if (!this.labels) this.labels = new LabelOverlay(this.container);
+    const w = this.container.clientWidth, h = this.container.clientHeight;
+    this.camera.updateMatrixWorld();
+    const ndc = new THREE.Vector3();
+    const toScreen = (p: THREE.Vector3) => { ndc.copy(p).project(this.camera); return { x: (ndc.x * 0.5 + 0.5) * w, y: (-ndc.y * 0.5 + 0.5) * h }; };
+    const items = [];
+    const camDir = new THREE.Vector3();
+    for (const v of this.vessels.values()) {
+      const text = labelText(v.id, v.state, this.labelMode);
+      let at = -1;
+      if (text && v.samples.length) {
+        if (v.labelAt >= 0 && this.pointVisible(v.samples[v.labelAt].p, v.samples[v.labelAt].out, ndc)) at = v.labelAt;
+        else {
+          // candidates nearest the vessel's trunk first; a few ray tests at most per vessel and frame
+          const order = v.samples.map((s, i) => ({ i, f: s.out.dot(camDir.copy(this.camera.position).sub(s.p).normalize()), d: s.d })).filter((c) => c.f > 0.15).sort((a, b) => a.d - b.d);
+          for (const c of order.slice(0, 6)) if (this.pointVisible(v.samples[c.i].p, v.samples[c.i].out, ndc)) { at = c.i; break; }
+        }
+      }
+      v.labelAt = at;
+      const pos = at >= 0 ? toScreen(v.samples[at].p) : { x: 0, y: 0 };
+      items.push({ id: v.id, text: text ?? '', color: v.state?.color ?? '#9e9ea3', selected: v.id === this.selection.selected, visible: at >= 0 && this.status.webgl, ...pos });
+    }
+    const obstacles: { x: number; y: number }[] = [];
+    for (const v of this.vessels.values()) for (const p of v.outline) obstacles.push(toScreen(p));
+    this.labels.update(items, toScreen(this.heartCentre), { w, h }, obstacles);
+  }
+
   // ---- anchors ------------------------------------------------------------------------------------------
 
   /**
@@ -952,6 +1084,27 @@ function weldedForOutline(src: THREE.BufferGeometry): THREE.BufferGeometry {
   g.dispose();
   welded.computeVertexNormals();
   return welded;
+}
+
+/** About LABEL_SAMPLES points spread over a vessel (farthest-point sampling of its vertices, deterministic), each with its direction away from the heart centre. */
+function labelSamples(pos: Float32Array, centre: THREE.Vector3): { p: THREE.Vector3; out: THREE.Vector3; d: number }[] {
+  const n = pos.length / 3;
+  if (!n) return [];
+  const stride = Math.max(1, Math.floor(n / 1500));
+  const pts: THREE.Vector3[] = [];
+  for (let i = 0; i < n; i += stride) pts.push(new THREE.Vector3(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]));
+  const mean = new THREE.Vector3();
+  for (const p of pts) mean.add(p);
+  mean.divideScalar(pts.length);
+  const picked: THREE.Vector3[] = [pts.reduce((a, b) => (b.distanceToSquared(mean) < a.distanceToSquared(mean) ? b : a))]; // start at the trunk (nearest to the centroid)
+  const dmin = pts.map((p) => p.distanceToSquared(picked[0]));
+  while (picked.length < Math.min(LABEL_SAMPLES, pts.length)) {
+    let bi = 0;
+    for (let i = 1; i < pts.length; i++) if (dmin[i] > dmin[bi]) bi = i;
+    picked.push(pts[bi]);
+    for (let i = 0; i < pts.length; i++) dmin[i] = Math.min(dmin[i], pts[i].distanceToSquared(pts[bi]));
+  }
+  return picked.map((p) => ({ p, out: p.clone().sub(centre).normalize(), d: p.distanceTo(mean) }));
 }
 
 /** World-space triangle list of a vessel's parts (the model never moves, so this is computed once). */

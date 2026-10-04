@@ -20,6 +20,11 @@ const viewer = new HeartViewer({
   liteModelUrl: lite === 'none' ? undefined : (lite ?? 'models3d/heart_lite.glb'),
   lowPower: flag('lowPower'),
   reducedMotion: flag('reduced'),
+  // appearance options (all optional; defaults are the recommended look)
+  bodyStyle: params.get('body') === 'natural' ? 'natural' : undefined,
+  labels: (['off', 'name', 'risk'] as const).find((l) => l === params.get('labels')),
+  vesselBoost: params.has('boost') ? Number(params.get('boost')) : undefined,
+  showHidden: flag('hidden'),
 });
 // handles for the browser tests (e2e/)
 Object.assign(window, { __viewer: viewer, __HeartViewer: HeartViewer });
@@ -78,17 +83,9 @@ viewer.onSelect((id) => {
   refreshStatus();
 });
 
-// callouts pinned to the three vessel nodes (also used by the browser tests to find click targets)
-const callouts = new Map<string, HTMLElement>();
+// anchors: the viewer draws its own in-canvas labels; the harness only exposes the anchor positions to the browser tests (e2e/)
 viewer.setAnchors(C.vessels.map((v) => ({ key: v.id, node: v.id })));
-viewer.onAnchors((list) => {
-  Object.assign(window, { __anchors: list });
-  for (const a of list) {
-    let el = callouts.get(a.key);
-    if (!el) { el = document.createElement('div'); el.className = 'callout'; el.textContent = a.key; el.dataset.anchor = a.key; stage.appendChild(el); callouts.set(a.key, el); }
-    el.style.left = `${a.x}px`; el.style.top = `${a.y}px`; el.style.display = a.visible ? '' : 'none';
-  }
-});
+viewer.onAnchors((list) => { Object.assign(window, { __anchors: list }); });
 
 function refreshStatus(): void {
   document.getElementById('status')!.textContent = JSON.stringify(viewer.getStatus(), null, 1);
