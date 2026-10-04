@@ -6,7 +6,6 @@ slow prediction never blocks the event loop.
 """
 import copy
 import json
-import logging
 import math
 import threading
 import time
@@ -17,10 +16,11 @@ import numpy as np
 
 from api import settings
 from api.schemas import API_VERSION, DISCLAIMER
-from pipeline import features, leakage
-from pipeline.settings import MODELS_DIR, REPORTS_DIR, cfg, manifest, risk_bands, seed, split_targets
+from pipeline import features
+from pipeline.settings import (MODELS_DIR, REPORTS_DIR, cfg, get_logger, manifest, risk_bands, seed,
+                               split_targets)
 
-log = logging.getLogger("api")
+log = get_logger("api")
 EXAMPLE_FILE = REPORTS_DIR / "example_prediction.json"
 HEAVY_PARTS = ("uncertainty", "shap", "counterfactual")
 

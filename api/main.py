@@ -7,7 +7,6 @@ POST /predict/fast   probabilities and bands only, for live what-if sliders
 
 Contract: api/schemas.py and docs/api.md. Environment variables: api/settings.py.
 """
-import logging
 import time
 from contextlib import asynccontextmanager
 
@@ -22,8 +21,9 @@ from api.schemas import (API_VERSION, DISCLAIMER, ErrorResponse, FastPredictResp
                          PredictRequest, PredictResponse)
 from api.service import ServiceUnavailable, load_engine
 from pipeline.leakage import LeakageError
+from pipeline.settings import get_logger
 
-log = logging.getLogger("api")
+log = get_logger("api")
 MOCK_HEADER = "X-RiskAtlas-Mock"
 ERROR_RESPONSES = {422: {"model": ErrorResponse, "description": "Invalid request or a label column used as input"},
                    503: {"model": ErrorResponse, "description": "Models not loaded, or trained against a different features.yaml"}}
@@ -58,8 +58,7 @@ def create_app(mock=None) -> FastAPI:
                   description=DISCLAIMER + " Contract and usage: docs/api.md.")
     origins = settings.cors_origins()
     app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST", "OPTIONS"],
-                       allow_headers=["*"], expose_headers=[MOCK_HEADER, "X-Cache"],
-                       allow_credentials="*" not in origins)
+                       allow_headers=["*"], expose_headers=[MOCK_HEADER, "X-Cache"])  # no cookies or auth: no credentials
 
     # ---- errors: every non-2xx response is {"error": {"code", "message", "details"?}} ------------------
 
