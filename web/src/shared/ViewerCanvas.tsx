@@ -44,7 +44,7 @@ export function ViewerCanvas({ vessels, overall, selectedMesh, onSelectMesh, mes
           container: el,
           modelUrl: `${BASE}models3d/heart.glb`,
           liteModelUrl: `${BASE}models3d/heart_lite.glb`,
-          lowPower: lowPowerDevice(),
+          lowPower: lowPowerDevice() ? true : undefined, // undefined lets the viewer auto-detect software rendering
           reducedMotion: prefersReducedMotion(),
         });
         viewer.current = v;
