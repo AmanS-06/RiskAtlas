@@ -209,23 +209,26 @@ def figure_shap(top=7):
 # ---------------------------------------------------------------------------------------------
 def figure_app():
     from matplotlib import image as mpimg
-    app = mpimg.imread(FIG / "app_dashboard_high.png")
-    shots = [("viewer_selected_LAD.png", "LAD selected (p 0.76, high);\nLCX 0.38 moderate; RCA 0.10 low"),
-             ("viewer_selected_LCX.png", "LCX selected: its course is on the\nback of the heart, camera turns to it"),
-             ("viewer_bands_all_high.png", "all vessels p 0.90, narrow\ninterval: full colour"),
-             ("viewer_uncertainty_wide.png", "same, interval width 0.40:\ndesaturated, band still labelled")]
-    fig = plt.figure(figsize=(17.5 * CM, 7.2 * CM))
-    gs = fig.add_gridspec(2, 3, width_ratios=[1.9, 1, 1], wspace=0.03, hspace=0.02)
-    axa = fig.add_subplot(gs[:, 0])
-    axa.imshow(app)
+    fig = plt.figure(figsize=(17.5 * CM, 7.8 * CM))
+    gs = fig.add_gridspec(2, 3, height_ratios=[5.0, 2.3], width_ratios=[1, 1, 1], wspace=0.02, hspace=0.12)
+    # row 1: the app (1920x1080, real API) on the left two thirds, a harness view on the right third
+    axa = fig.add_subplot(gs[0, 0:2])
+    axa.imshow(mpimg.imread(FIG / "app_dashboard_high.png")[:, 80:1840])
+    axa.set_anchor("NW")
     axa.axis("off")
-    axa.set_title("(a) Dashboard with the real API (software WebGL)", fontsize=6.5, loc="left")
-    for k, (f, cap) in enumerate(shots):
-        ax = fig.add_subplot(gs[k // 2, 1 + k % 2])
+    axa.set_title("(a) Dashboard against the real API, 1920x1080, rendered on software WebGL (lite model)", fontsize=6.2, loc="left", pad=2)
+    axb = fig.add_subplot(gs[0, 2])
+    axb.imshow(mpimg.imread(FIG / "viewer_selected_LCX.png"))
+    axb.set_anchor("N")
+    axb.axis("off")
+    axb.set_title("(b) Harness, standard model, LCX selected", fontsize=5.8, loc="left", pad=2)
+    for k, (f, cap) in enumerate([("app_viewer_low.png", "(c) low-risk preset"), ("app_viewer_moderate.png", "(d) moderate-risk preset"),
+                                  ("app_viewer_high.png", "(e) high-risk preset")]):
+        ax = fig.add_subplot(gs[1, k])
         ax.imshow(mpimg.imread(FIG / f))
         ax.axis("off")
-        ax.set_title(f"({'bcde'[k]}) {cap}", fontsize=5.4, loc="left")
-    fig.subplots_adjust(left=0.005, right=0.995, top=0.93, bottom=0.005)
+        ax.set_title(cap + ", real API, in-app viewer", fontsize=5.8, loc="left", pad=2)
+    fig.subplots_adjust(left=0.004, right=0.996, top=0.955, bottom=0.004)
     fig.savefig(FIG / "fig_app.png", dpi=DPI)
     plt.close(fig)
 
@@ -233,11 +236,11 @@ def figure_app():
 def figure_tabs():
     """Physiology and what-if tabs of the dashboard (crops of two real-API screenshots)."""
     from matplotlib import image as mpimg
-    crops = [(mpimg.imread(FIG / "app_dashboard_moderate_physiology.png")[135:640, 660:1435],
+    crops = [(mpimg.imread(FIG / "app_dashboard_moderate_physiology.png")[90:545, 930:1825],
               "(a) Physiology tab: value, range, status, share of effect"),
-             (mpimg.imread(FIG / "app_dashboard_whatif.png")[135:640, 660:1435],
+             (mpimg.imread(FIG / "app_dashboard_whatif.png")[90:545, 930:1825],
               "(b) What-if tab: counterfactual changes and the mandatory note")]
-    fig = plt.figure(figsize=(17.5 * CM, 5.9 * CM))
+    fig = plt.figure(figsize=(17.5 * CM, 4.7 * CM))
     for k, (img, cap) in enumerate(crops):
         ax = fig.add_axes([0.006 + k * 0.5, 0.0, 0.488, 0.92])
         ax.imshow(img)

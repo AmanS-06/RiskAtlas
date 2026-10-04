@@ -1,0 +1,83 @@
+{
+  "gl_info": {
+    "webgl2": true,
+    "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+    "aa": false
+  },
+  "band_pixels_high_low_moderate": [
+    {
+      "red": 13397,
+      "green": 0,
+      "amber": 0
+    },
+    {
+      "red": 0,
+      "green": 20061,
+      "amber": 0
+    },
+    {
+      "red": 0,
+      "green": 0,
+      "amber": 12758
+    }
+  ],
+  "outline_pixels": {
+    "plain": [
+      3227,
+      0
+    ],
+    "selected": [
+      6591,
+      3269
+    ]
+  },
+  "canvas_cap_lowpower": {
+    "w": 1163,
+    "h": 687,
+    "cssW": 2198,
+    "cssH": 1298,
+    "dpr": 1
+  },
+  "dispose_check": {
+    "during": 16,
+    "leftover": [],
+    "children": 0,
+    "role": null,
+    "label": "mine",
+    "tabindex": null,
+    "position": "",
+    "lost": true,
+    "framesAfter": 0,
+    "rafAfter": 0,
+    "status": {
+      "loaded": false,
+      "usingFallback": "none",
+      "webgl": false,
+      "triangles": 0
+    }
+  },
+  "TIMING 1280x800 default (auto low power: lite model)": {
+    "fps": 33.4,
+    "statusFps": 30
+  },
+  "TIMING 1280x800 lowPower with the standard model": {
+    "fps": 27.1,
+    "statusFps": 29.9
+  },
+  "TIMING 1280x800 full quality (standard materials, halo)": {
+    "fps": 17.6,
+    "statusFps": 20
+  },
+  "TIMING 1920x1080 default (auto low power)": {
+    "fps": 19.5,
+    "statusFps": 20
+  },
+  "TIMING 390x844 phone default": {
+    "fps": 57.3,
+    "statusFps": 59.9
+  },
+  "load_ms": {
+    "standard": 545,
+    "lite": 211
+  }
+}

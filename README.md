@@ -16,21 +16,26 @@ spots (LCX and RCA, ROC-AUC about 0.72 to 0.73) are reported as they are.
 > educational purposes only. It is not a medical device, does not provide a diagnosis, and is not a
 > substitute for formal diagnostic imaging or clinical judgement.
 
-![RiskAtlas dashboard: 3D heart and predicted risk on the left, SHAP explanation for the LAD on the right](docs/figures/app_dashboard_high.png)
+![RiskAtlas dashboard at 1920 by 1080: 3D heart with a labelled chip on each coronary artery and the predicted risk on the left, SHAP explanation for the LAD on the right](docs/figures/app_dashboard_high.png)
 
-*The app against the real API (illustrative high-risk preset, LAD selected), rendered without a GPU,
-so the viewer uses its lite model. More views: [3D viewer harness](docs/figures/viewer_selected_LCX.png),
+*The app at 1920×1080 against the real API (illustrative high-risk preset, LAD selected), rendered without a GPU,
+so the viewer uses its lite model. Other views: [phone width](docs/figures/app_phone_high.png),
 [physiology tab](docs/figures/app_dashboard_moderate_physiology.png),
-[what-if tab](docs/figures/app_dashboard_whatif.png).*
+[what-if tab](docs/figures/app_dashboard_whatif.png). In-app viewer for the three risk bands:
+[low](docs/figures/app_viewer_low.png), [moderate](docs/figures/app_viewer_moderate.png),
+[high](docs/figures/app_viewer_high.png), and [LCX selected](docs/figures/app_viewer_high_LCX_selected.png).
+Standard-model viewer harness: [low](docs/figures/viewer_bands_all_low.png),
+[moderate](docs/figures/viewer_bands_all_moderate.png), [high](docs/figures/viewer_bands_all_high.png),
+[LAD selected](docs/figures/viewer_selected_LAD.png), [LCX selected](docs/figures/viewer_selected_LCX.png).*
 
 ---
 
 ## Status
 
 Working end to end: ML pipeline, FastAPI backend, React dashboard and three.js viewer are integrated
-and tested. Checked on a clean copy: 97 Python tests pass (3 more need the dataset and are skipped), 182
-web unit and component tests pass, and 25 browser tests pass, including a suite against the real
-backend.
+and tested. Checked on a clean copy: 97 Python tests pass (3 more need the dataset and are skipped), 188
+web unit and component tests pass, and 33 browser tests pass, including a suite against the real
+backend. The viewer harness has 65 unit and 51 browser tests of its own.
 
 Not built: a heartbeat animation, the 17-segment bullseye, the clinical-report reader (`cv/`) and the
 natural-language layer (`slm/`); the last two folders are empty placeholders. Not deployed: there is
@@ -58,8 +63,8 @@ Not deployed yet.
 | Interpretable breakdown (SHAP or LIME) | SHAP in the UI, exactly additive in probability space; LIME is an offline cross-check on ten patients per target | [ml_methods](docs/ml_methods.md) |
 | Physiological measurements with their contribution | Physiology tab: value, reference range, status and share of the explanation for the 18 numeric features that have a reference range | [web](docs/web.md) |
 | Open-source 3D mesh | Z-Anatomy (from BodyParts3D), CC BY-SA 4.0, built reproducibly into two `.glb` files | [ASSETS_AND_LICENSES](ASSETS_AND_LICENSES.md) |
-| Clinical safety disclaimer in the UI | A banner at the top, visible without scrolling and after scrolling, at every tested screen size | [web](docs/web.md) |
-| Responsive without a dedicated GPU | On-demand rendering and an automatic lite path on software GL; measured 27 to 32 frames per second on a no-GPU VM, worst case, ±30% | [viewer](docs/viewer.md) section 6 |
+| Clinical safety disclaimer in the UI | A banner at the top, visible without scrolling and after scrolling, at every tested screen size (7 sizes from 320 to 1920 px wide) | [web](docs/web.md) |
+| Responsive without a dedicated GPU | On-demand rendering and an automatic lite path on software GL; measured about 32 to 33 frames per second at 1280×800 on a no-GPU VM, worst case, ±30% | [viewer](docs/viewer.md) section 6 |
 | Add features, models or structures without a redesign | Features, targets, mesh names and band colours come from `config/*.yaml` and are served through `/meta` | [web](docs/web.md) |
 | Consistent LAD, LCX, RCA correspondence | Node names are the `mesh` values of `config/manifest.yaml`; a test fails if manifest, type and `.glb` files disagree | [viewer](docs/viewer.md) |
 
@@ -181,13 +186,13 @@ the API to the web origin.
 ```bash
 python -m pytest                                  # about a minute; 97 pass, 3 skip without the dataset
 cd web
-npm test                                          # 182 unit and component tests (Vitest, jsdom)
-npm run e2e                                       # 25 real-browser tests, mock mode
-E2E_REAL_API=http://127.0.0.1:8000 npm run e2e    # adds the suite against a running backend
+npm test                                          # 188 unit and component tests (Vitest, jsdom)
+npm run e2e                                       # real-browser tests, mock mode
+E2E_REAL_API=http://127.0.0.1:8000 npm run e2e    # adds 5 tests against a running backend: 33 in total
 npm run typecheck                                 # tsc --noEmit
 ```
 
-The stand-alone viewer harness has its own tests: `cd web/viewer-demo && npm ci && npm test && npm run test:e2e`.
+The stand-alone viewer harness has its own tests (65 unit, 51 browser): `cd web/viewer-demo && npm ci && npm test && npm run test:e2e`.
 
 ### Retrain the models (optional)
 
