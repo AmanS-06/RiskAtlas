@@ -1,0 +1,156 @@
+/* theme.css - every colour, font and spacing token of the web app, and nothing else.
+ * Components and layout CSS only reference these variables. Restyle here.
+ * Risk-band colours do NOT live here: they come from config/risk_bands.yaml via /meta. Only the colour-blind-safe
+ * alternative ramp (--safe-band-*) is defined below, because the config palette is not distinguishable enough
+ * for protanopia (docs/web_findings.md). Pairs that carry text are checked for WCAG AA by src/shared/theme.test.ts. */
+
+:root {
+  color-scheme: light;
+
+  /* surfaces and text */
+  --bg: #f3f6fa;
+  --surface: #ffffff;
+  --surface-2: #eaeff5;
+  --border: #c5d0dc;
+  --border-strong: #708196;
+  --text: #121c28;
+  --text-muted: #435263;
+
+  /* interactive */
+  --accent: #0a58a8;
+  --accent-contrast: #ffffff;
+  --accent-soft: #dcebfa;
+  --focus: #6b2fd6;
+  --danger: #a4161a;
+  --danger-soft: #fde8e8;
+  --ok: #1c6b3c;
+  --info-soft: #e3effb;
+
+  /* clinical-safety disclaimer */
+  --disclaimer-bg: #fff1c9;
+  --disclaimer-text: #432b00;
+  --disclaimer-border: #b87a00;
+
+  /* mock-data flag */
+  --mock-bg: #3b1d6e;
+  --mock-text: #ffffff;
+
+  /* explanation direction: orange-red raises risk, blue lowers it (always paired with a glyph) */
+  --shap-up: #b83c00;
+  --shap-down: #1f56c4;
+  --bar-track: #dde5ee;
+
+  /* physiology status */
+  --status-low: #1f56c4;
+  --status-normal: #1c6b3c;
+  --status-high: #b83c00;
+  --status-missing: #435263;
+
+  /* risk gauge */
+  --gauge-track: #dde5ee;
+  --gauge-needle: #121c28;
+  --interval: #121c28;
+
+  /* 3D stage */
+  --viewer-bg: #e6edf5;
+  --viewer-text: #121c28;
+  --viewer-neutral: #9aa8b8; /* vessels with no prediction yet */
+
+  /* colour-blind-safe alternative ramp, lowest risk first: light blue, amber, crimson (lightness falls as risk rises) */
+  --safe-band-0: #b4e4fa;
+  --safe-band-1: #e89a2e;
+  --safe-band-2: #8e0f35;
+
+  /* type and shape */
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --text-display: 2.5rem;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --gutter: 16px;
+  --gap: 16px;
+  --shadow: 0 1px 2px rgb(15 30 50 / 8%), 0 2px 8px rgb(15 30 50 / 6%);
+  --focus-ring: 3px solid var(--focus);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg: #0d131a;
+    --surface: #151d27;
+    --surface-2: #1d2733;
+    --border: #2f3d4d;
+    --border-strong: #6a7d91;
+    --text: #e9eff6;
+    --text-muted: #a6b4c4;
+    --accent: #78b8ff;
+    --accent-contrast: #061423;
+    --accent-soft: #1b3550;
+    --focus: #c4a8ff;
+    --danger: #ff8a8a;
+    --danger-soft: #3b1a1c;
+    --ok: #6fd69a;
+    --info-soft: #17304a;
+    --disclaimer-bg: #3b2d08;
+    --disclaimer-text: #ffe8ae;
+    --disclaimer-border: #d9a228;
+    --mock-bg: #cdb6ff;
+    --mock-text: #1d0c3c;
+    --shap-up: #ff9a5c;
+    --shap-down: #8fb4ff;
+    --bar-track: #263443;
+    --status-low: #8fb4ff;
+    --status-normal: #6fd69a;
+    --status-high: #ff9a5c;
+    --status-missing: #a6b4c4;
+    --gauge-track: #263443;
+    --gauge-needle: #e9eff6;
+    --interval: #e9eff6;
+    --viewer-bg: #0a1018;
+    --viewer-text: #e9eff6;
+    --viewer-neutral: #566a80;
+    --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 2px 8px rgb(0 0 0 / 30%);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0d131a;
+  --surface: #151d27;
+  --surface-2: #1d2733;
+  --border: #2f3d4d;
+  --border-strong: #6a7d91;
+  --text: #e9eff6;
+  --text-muted: #a6b4c4;
+  --accent: #78b8ff;
+  --accent-contrast: #061423;
+  --accent-soft: #1b3550;
+  --focus: #c4a8ff;
+  --danger: #ff8a8a;
+  --danger-soft: #3b1a1c;
+  --ok: #6fd69a;
+  --info-soft: #17304a;
+  --disclaimer-bg: #3b2d08;
+  --disclaimer-text: #ffe8ae;
+  --disclaimer-border: #d9a228;
+  --mock-bg: #cdb6ff;
+  --mock-text: #1d0c3c;
+  --shap-up: #ff9a5c;
+  --shap-down: #8fb4ff;
+  --bar-track: #263443;
+  --status-low: #8fb4ff;
+  --status-normal: #6fd69a;
+  --status-high: #ff9a5c;
+  --status-missing: #a6b4c4;
+  --gauge-track: #263443;
+  --gauge-needle: #e9eff6;
+  --interval: #e9eff6;
+  --viewer-bg: #0a1018;
+  --viewer-text: #e9eff6;
+  --viewer-neutral: #566a80;
+  --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 2px 8px rgb(0 0 0 / 30%);
+}
