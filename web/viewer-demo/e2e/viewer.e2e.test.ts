@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import { chromium, type Browser } from 'playwright-core';
 import type { PreviewServer } from 'vite';
-import { anchor, chromiumPath, countPixels, demoRoot, glbWithNodes, launch, openDemo, settle, shotDir, stageBox, startServer } from './helpers';
+import { anchor, chromiumPath, countPixels, demoRoot, glbWithNodes, launch, opaqueBox, openDemo, settle, shotDir, sizeStage, stageBox, startServer } from './helpers';
 import type { Opened } from './helpers';
 
 let browser: Browser;
@@ -470,6 +470,142 @@ describe('rendering policy', () => {
     expect(after.w).toBeLessThan(before);
     expect(Math.abs(after.ratio - after.sw / after.sh)).toBeLessThan(0.02);
     noErrors(o);
+  });
+});
+
+describe('camera framing', () => {
+  // canvas shapes: the sticky column at 1920x1030 and 1920x890, a laptop, the shortest column, a tall box, a phone, a very wide strip
+  const SHAPES: [number, number][] = [[813, 569], [813, 429], [660, 349], [624, 200], [400, 500], [286, 318], [300, 600], [1200, 400]];
+
+  it('the heart fills 80-95 percent of the limiting dimension at the home view, measured on the rendered pixels, for every box shape', async () => {
+    const o = await open({ query: 'lowPower=0', viewport: { width: 1300, height: 900 } });
+    await settle(o.page);
+    for (const [w, h] of SHAPES) {
+      await sizeStage(o.page, w, h);
+      const b = await opaqueBox(o.page);
+      record(`framing_${w}x${h}`, { limiting: +b.limiting.toFixed(3), fx: +b.fx.toFixed(3), fy: +b.fy.toFixed(3) });
+      expect(b.limiting, `${w}x${h}`).toBeGreaterThanOrEqual(0.8);
+      expect(b.limiting, `${w}x${h}`).toBeLessThanOrEqual(0.95);
+      expect(b.fx, `${w}x${h} width`).toBeLessThanOrEqual(0.95);
+      expect(b.fy, `${w}x${h} height`).toBeLessThanOrEqual(0.95);
+      expect(b.x0, `${w}x${h} left edge`).toBeGreaterThan(0);
+      expect(b.y0, `${w}x${h} top edge`).toBeGreaterThan(0);
+      expect(b.x1, `${w}x${h} right edge`).toBeLessThan(b.w - 1);
+      expect(b.y1, `${w}x${h} bottom edge`).toBeLessThan(b.h - 1);
+      // the camera maths agrees with what was actually drawn
+      const f = await o.page.evaluate(() => window.__viewer.getFraming());
+      expect(Math.abs(f.silhouette!.y1 - f.silhouette!.y0 - (b.y1 - b.y0 + 1) * (f.height / b.h))).toBeLessThan(0.02 * f.height + 3);
+    }
+    noErrors(o);
+  });
+
+  it('labels stay inside the canvas at every box shape (home view, and a selected vessel)', async () => {
+    const o = await open({ query: 'lowPower=0', viewport: { width: 1300, height: 900 } });
+    for (const sel of [null, 'LAD']) {
+      for (const [w, h] of SHAPES) {
+        await sizeStage(o.page, w, h);
+        await o.page.evaluate((s) => window.__viewer.select(s as 'LAD' | null), sel);
+        await settle(o.page);
+        const chips = await o.page.evaluate(() => {
+          const st = document.getElementById('stage')!.getBoundingClientRect();
+          return [...document.querySelectorAll('[data-viewer-labels] [data-label]')].filter((r) => (r as HTMLElement).style.display !== 'none')
+            .map((r) => { const c = r.querySelector('span')!.getBoundingClientRect(); return { id: (r as HTMLElement).dataset.label, l: c.left - st.left, t: c.top - st.top, r: st.right - c.right, b: st.bottom - c.bottom }; });
+        });
+        expect(chips.length, `${w}x${h} ${sel}`).toBe(3);
+        for (const c of chips) for (const k of ['l', 't', 'r', 'b'] as const) expect(c[k], `${w}x${h} ${sel} ${c.id} ${k}`).toBeGreaterThanOrEqual(-0.5);
+      }
+    }
+    noErrors(o);
+  });
+
+  it('re-fits on resize (keeping the orbit angle), refits on resetView, keeps a deliberate zoom, and the zoom range stays usable', async () => {
+    const o = await open({ query: 'lowPower=0', viewport: { width: 1300, height: 900 } });
+    const get = () => o.page.evaluate(() => window.__viewer.getFraming());
+    const angle = (a: { direction: number[] }, b: { direction: number[] }) => (Math.acos(Math.min(1, a.direction[0] * b.direction[0] + a.direction[1] * b.direction[1] + a.direction[2] * b.direction[2])) * 180) / Math.PI;
+    await sizeStage(o.page, 813, 500);
+    const home = await get();
+    expect(home.fitted).toBe(true);
+    // shape changes: the distance follows the limiting dimension (a narrow box needs a larger distance), and the heart stays at the fill
+    await sizeStage(o.page, 300, 600);
+    const narrow = await get();
+    expect(narrow.distance).toBeGreaterThan(home.distance * 1.4);
+    expect(narrow.fitted).toBe(true);
+    const nb = await opaqueBox(o.page);
+    expect(nb.limiting).toBeGreaterThanOrEqual(0.8);
+    await sizeStage(o.page, 813, 500);
+    expect(Math.abs((await get()).distance - home.distance)).toBeLessThan(0.01);
+    // orbit (arrow keys), then resize: same angle
+    await o.page.focus('#stage');
+    for (let i = 0; i < 5; i++) await o.page.keyboard.press('ArrowRight');
+    await settle(o.page);
+    const orbited = await get();
+    expect(angle(orbited, home)).toBeGreaterThan(8);
+    await sizeStage(o.page, 300, 600);
+    const orbitedNarrow = await get();
+    expect(angle(orbitedNarrow, orbited)).toBeLessThan(0.3);
+    expect(orbitedNarrow.fitted).toBe(true);
+    expect(orbitedNarrow.distance).toBeGreaterThan(orbited.distance * 1.3);
+    const sil = orbitedNarrow.silhouette!;
+    expect(Math.max(sil.x1 - sil.x0, 0) / orbitedNarrow.width).toBeGreaterThan(0.6);
+    expect(sil.x0).toBeGreaterThanOrEqual(-0.5); expect(sil.x1).toBeLessThanOrEqual(orbitedNarrow.width + 0.5);
+    // reset view: home again for the current box
+    await o.page.evaluate(() => window.__viewer.resetView());
+    await settle(o.page);
+    const reset = await get();
+    expect(reset.fitted).toBe(true);
+    expect(angle(reset, home)).toBeLessThan(0.3);
+    expect((await opaqueBox(o.page)).limiting).toBeGreaterThanOrEqual(0.8);
+    // a deliberate zoom is kept (same share of the box), not snapped back to the fit
+    await sizeStage(o.page, 813, 500);
+    await o.page.keyboard.press('0'); await settle(o.page);
+    for (let i = 0; i < 4; i++) await o.page.keyboard.press('+');
+    await settle(o.page);
+    const zoomed = await get();
+    expect(zoomed.fitted).toBe(false);
+    await sizeStage(o.page, 660, 349);
+    const zoomed2 = await get();
+    expect(zoomed2.fitted).toBe(false);
+    expect(Math.abs(zoomed2.distance - zoomed.distance) / zoomed.distance).toBeLessThan(0.02);
+    // zoom range
+    await sizeStage(o.page, 813, 500);
+    await o.page.keyboard.press('0'); await settle(o.page);
+    const fit = (await get()).autoDistance;
+    for (let i = 0; i < 50; i++) await o.page.keyboard.press('-');
+    await settle(o.page);
+    expect((await get()).distance).toBeGreaterThanOrEqual(fit * 2);
+    for (let i = 0; i < 100; i++) await o.page.keyboard.press('+');
+    await settle(o.page);
+    expect((await get()).distance).toBeLessThanOrEqual(fit * 0.5);
+    noErrors(o);
+  });
+
+  it('resize keeps rendering on demand: a few frames for the resize, then none while idle', async () => {
+    const o = await open({ query: 'lowPower=0', viewport: { width: 1300, height: 900 } });
+    await settle(o.page, 500);
+    await sizeStage(o.page, 500, 420);
+    await o.page.waitForTimeout(600);
+    const a = await o.page.evaluate(() => [window.__clears, window.__rafCalls]);
+    await o.page.waitForTimeout(1500);
+    const b = await o.page.evaluate(() => [window.__clears, window.__rafCalls]);
+    expect(b[0] - a[0], 'frames while idle after a resize').toBe(0);
+    expect(b[1] - a[1], 'rAF requests while idle after a resize').toBe(0);
+    noErrors(o);
+  });
+
+  it('the fill option sets the share (default 0.88, 0.7 gives a smaller heart, out-of-range values are clamped)', async () => {
+    const shares: Record<string, number> = {};
+    for (const q of ['lowPower=0', 'lowPower=0&fill=0.7', 'lowPower=0&fill=5', 'lowPower=0&fill=0.01']) {
+      const o = await open({ query: q, viewport: { width: 1300, height: 900 } });
+      await sizeStage(o.page, 813, 500);
+      shares[q] = (await opaqueBox(o.page)).limiting;
+      noErrors(o);
+    }
+    expect(shares['lowPower=0']).toBeGreaterThan(0.85);
+    expect(shares['lowPower=0&fill=0.7']).toBeGreaterThan(0.66);
+    expect(shares['lowPower=0&fill=0.7']).toBeLessThan(0.74);
+    expect(shares['lowPower=0&fill=5']).toBeLessThan(0.99); // clamped to 0.98
+    expect(shares['lowPower=0&fill=0.01']).toBeGreaterThan(0.45); // clamped to 0.5
+    expect(shares['lowPower=0&fill=0.01']).toBeLessThan(0.56);
   });
 });
 

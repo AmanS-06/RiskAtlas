@@ -122,6 +122,32 @@ export function countPixels(page: Page): Promise<Pixels> {
   });
 }
 
+/** Bounding box (canvas px) of the opaque pixels of the viewer's canvas, read back right after a synchronous render. The glow halo is translucent, so it does not count. */
+export function opaqueBox(page: Page): Promise<{ x0: number; y0: number; x1: number; y1: number; w: number; h: number; fx: number; fy: number; limiting: number }> {
+  return page.evaluate(() => {
+    window.__viewer.resize();
+    const c = document.querySelector('#stage canvas') as HTMLCanvasElement;
+    const t = document.createElement('canvas');
+    t.width = c.width; t.height = c.height;
+    const x = t.getContext('2d', { willReadFrequently: true })!;
+    x.drawImage(c, 0, 0);
+    const d = x.getImageData(0, 0, t.width, t.height).data;
+    let x0 = Infinity, y0 = Infinity, x1 = -1, y1 = -1;
+    for (let y = 0; y < t.height; y++) for (let xx = 0; xx < t.width; xx++) {
+      if (d[(y * t.width + xx) * 4 + 3] < 250) continue;
+      if (xx < x0) x0 = xx; if (xx > x1) x1 = xx; if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+    const fx = (x1 - x0 + 1) / t.width, fy = (y1 - y0 + 1) / t.height;
+    return { x0, y0, x1, y1, w: t.width, h: t.height, fx, fy, limiting: Math.max(fx, fy) };
+  });
+}
+
+/** Give the demo's #stage an exact CSS size (it normally follows the window) and wait for the viewer's ResizeObserver to re-fit. */
+export async function sizeStage(page: Page, width: number, height: number): Promise<void> {
+  await page.evaluate(([w, h]) => { const s = document.getElementById('stage')!; s.style.width = `${w}px`; s.style.height = `${h}px`; s.style.minHeight = '0'; }, [width, height]);
+  await page.waitForTimeout(250);
+}
+
 export async function stageBox(page: Page): Promise<{ x: number; y: number; width: number; height: number }> {
   const b = await page.locator('#stage').boundingBox();
   if (!b) throw new Error('no #stage');

@@ -25,6 +25,7 @@ const viewer = new HeartViewer({
   labels: (['off', 'name', 'risk'] as const).find((l) => l === params.get('labels')),
   vesselBoost: params.has('boost') ? Number(params.get('boost')) : undefined,
   showHidden: flag('hidden'),
+  fill: params.has('fill') ? Number(params.get('fill')) : undefined,
 });
 // handles for the browser tests (e2e/)
 Object.assign(window, { __viewer: viewer, __HeartViewer: HeartViewer });

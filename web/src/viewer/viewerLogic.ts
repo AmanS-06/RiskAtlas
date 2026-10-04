@@ -258,6 +258,103 @@ export function fitDistance(radius: number, fovDeg: number, aspect: number): num
   return radius / Math.sin(Math.min(v, h));
 }
 
+// ---- camera framing ---------------------------------------------------------
+
+export type Vec3 = readonly [number, number, number];
+
+/** Default share of the limiting canvas dimension the heart's silhouette fills at the home view (the rest is margin for the label chips and the halo). */
+export const FRAME_FILL = 0.88;
+export const clampFill = (f: number | undefined): number => (typeof f === 'number' && Number.isFinite(f) ? Math.min(0.98, Math.max(0.5, f)) : FRAME_FILL);
+
+/**
+ * The points of a cloud (flat x,y,z array) that are extreme along `directions` evenly spread directions (Fibonacci sphere).
+ * They are a small stand-in for the convex hull, which is all a silhouette fit needs: fitting thousands of vertices on every resize
+ * would be wasteful, and a bounding sphere or box is 30 to 40 percent too loose for a heart.
+ */
+export function supportPoints(pos: ArrayLike<number>, directions = 192): Float32Array {
+  const n = Math.floor(pos.length / 3);
+  if (n === 0) return new Float32Array(0);
+  const stride = Math.max(1, Math.ceil(n / 150_000));
+  const best = new Int32Array(directions).fill(-1), bestDot = new Float64Array(directions).fill(-Infinity);
+  const dx = new Float64Array(directions), dy = new Float64Array(directions), dz = new Float64Array(directions);
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  for (let k = 0; k < directions; k++) {
+    const y = 1 - (2 * (k + 0.5)) / directions, r = Math.sqrt(1 - y * y);
+    dx[k] = Math.cos(golden * k) * r; dy[k] = y; dz[k] = Math.sin(golden * k) * r;
+  }
+  for (let i = 0; i < n; i += stride) {
+    const x = pos[i * 3], y = pos[i * 3 + 1], z = pos[i * 3 + 2];
+    for (let k = 0; k < directions; k++) {
+      const d = x * dx[k] + y * dy[k] + z * dz[k];
+      if (d > bestDot[k]) { bestDot[k] = d; best[k] = i; }
+    }
+  }
+  const chosen = [...new Set(best)].filter((i) => i >= 0);
+  const out = new Float32Array(chosen.length * 3);
+  chosen.forEach((i, j) => { out[j * 3] = pos[i * 3]; out[j * 3 + 1] = pos[i * 3 + 1]; out[j * 3 + 2] = pos[i * 3 + 2]; });
+  return out;
+}
+
+const sub3 = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const dot3 = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross3 = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const norm3 = (a: Vec3): Vec3 => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+
+/** Camera basis for a camera at target + dir * distance looking at the target, world up +Y (what THREE's lookAt builds). */
+export function cameraBasis(dir: Vec3): { right: Vec3; up: Vec3; back: Vec3 } {
+  const back = norm3(dir);
+  const worldUp: Vec3 = Math.abs(back[1]) > 0.999 ? [0, 0, 1] : [0, 1, 0];
+  const right = norm3(cross3(worldUp, back));
+  return { right, up: cross3(back, right), back };
+}
+
+/** Where the silhouette of `points` lands on screen (NDC, -1..1) for a camera at target + dir * dist. Points behind the camera are skipped; null when none is in front. */
+export function projectExtent(points: ArrayLike<number>, dir: Vec3, target: Vec3, dist: number, fovDeg: number, aspect: number): { x0: number; x1: number; y0: number; y1: number } | null {
+  const { right, up, back } = cameraBasis(dir);
+  const tanV = Math.tan((fovDeg * Math.PI) / 360), tanH = tanV * Math.max(0.05, aspect);
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (let i = 0; i + 2 < points.length; i += 3) {
+    const rel = sub3([points[i], points[i + 1], points[i + 2]], target);
+    const depth = dist - dot3(rel, back);
+    if (depth <= 1e-6) continue;
+    const x = dot3(rel, right) / (depth * tanH), y = dot3(rel, up) / (depth * tanV);
+    x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+  }
+  return x0 === Infinity ? null : { x0, x1, y0, y1 };
+}
+
+/**
+ * Smallest camera distance at which every point of the cloud lies within `fill` (0..1) of the half-extent of the canvas, horizontally and
+ * vertically (perspective included), for a camera looking at `target` from direction `dir`. With `centre`, the look-at point is first moved in
+ * the screen plane so the silhouette sits in the middle of the canvas (the heart plus its aorta is not symmetric about its bounding-box centre).
+ * Exact for a given target; the centring needs a few passes because the shift changes the perspective a little.
+ */
+export function fitPoints(points: ArrayLike<number>, dir: Vec3, target: Vec3, fovDeg: number, aspect: number, fill = FRAME_FILL, centre = false): { dist: number; target: Vec3 } {
+  const f = clampFill(fill);
+  const { right, up, back } = cameraBasis(dir);
+  const tanV = Math.tan((fovDeg * Math.PI) / 360), tanH = tanV * Math.max(0.05, aspect);
+  const need = (t: Vec3): number => {
+    let d = 0;
+    for (let i = 0; i + 2 < points.length; i += 3) {
+      const rel = sub3([points[i], points[i + 1], points[i + 2]], t);
+      d = Math.max(d, dot3(rel, back) + Math.max(Math.abs(dot3(rel, right)) / (f * tanH), Math.abs(dot3(rel, up)) / (f * tanV)));
+    }
+    return d;
+  };
+  let t = target, dist = need(t);
+  if (centre && points.length >= 3) {
+    for (let pass = 0; pass < 6; pass++) {
+      const e = projectExtent(points, dir, t, dist, fovDeg, aspect);
+      if (!e) break;
+      const cx = (e.x0 + e.x1) / 2, cy = (e.y0 + e.y1) / 2;
+      if (Math.abs(cx) < 1e-4 && Math.abs(cy) < 1e-4) break;
+      t = [t[0] + (right[0] * cx * tanH + up[0] * cy * tanV) * dist, t[1] + (right[1] * cx * tanH + up[1] * cy * tanV) * dist, t[2] + (right[2] * cx * tanH + up[2] * cy * tanV) * dist];
+      dist = need(t);
+    }
+  }
+  return { dist: Math.max(dist, 1e-3), target: t };
+}
+
 // ---- picking geometry -------------------------------------------------------
 
 function segmentDistance(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {

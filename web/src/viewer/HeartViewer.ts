@@ -8,17 +8,17 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import type { AnchorSpec, BodyStyle, FallbackLevel, HeartViewerOptions, LabelMode, OverallState, ScreenAnchor, ViewerStatus, VesselId, VesselState } from './types';
+import type { AnchorSpec, BodyStyle, FallbackLevel, HeartViewerOptions, LabelMode, OverallState, ScreenAnchor, ViewerFraming, ViewerStatus, VesselId, VesselState } from './types';
 import {
   ARIA_LABEL, EMISSIVE, Emitter, FrameMeter, NEUTRAL_TINT_SHARE, SelectionModel, UNSCORED_VESSEL, VESSEL_IDS, VESSEL_LOOK, applyUncertainty, bodyColor, computePixelRatio, describeSummary,
-  describeVessel, fitDistance, GLOW, glowHalo, glowSize, glowTint, isSoftwareRenderer, isVesselId, keyAction, labelText, missingVesselNodes, overallGlow, parseHex,
+  clampFill, describeVessel, fitDistance, fitPoints, projectExtent, supportPoints, GLOW, glowHalo, glowSize, glowTint, isSoftwareRenderer, isVesselId, keyAction, labelText, missingVesselNodes, overallGlow, parseHex,
   planLoadSteps, pointTriangleDistance, pulseActive, pulseExtra, renderBudget, runLoadChain, tweenProgress, withTimeout,
 } from './viewerLogic';
 import type { LoadStep } from './viewerLogic';
 import { buildProceduralHeart } from './procedural';
 import { LabelOverlay } from './labels';
 
-export type { Band, VesselId, VesselState, OverallState, HeartViewerOptions, ViewerStatus, FallbackLevel, AnchorSpec, ScreenAnchor, BodyStyle, LabelMode } from './types';
+export type { Band, VesselId, VesselState, OverallState, HeartViewerOptions, ViewerStatus, FallbackLevel, AnchorSpec, ScreenAnchor, BodyStyle, LabelMode, ViewerFraming } from './types';
 
 type SurfaceMaterial = THREE.MeshStandardMaterial | THREE.MeshLambertMaterial;
 
@@ -68,7 +68,7 @@ interface BodyEntry { mesh: THREE.Mesh; material: SurfaceMaterial; chamber: bool
 
 interface AnchorPoint { point: THREE.Vector3; outward: THREE.Vector3 }
 
-interface Tween { start: number; dur: number; d0: THREE.Vector3; d1: THREE.Vector3; r0: number; r1: number; t0: THREE.Vector3; t1: THREE.Vector3 }
+interface Tween { home: boolean; start: number; dur: number; d0: THREE.Vector3; d1: THREE.Vector3; r0: number; r1: number; t0: THREE.Vector3; t1: THREE.Vector3 }
 
 /** Vessel look on a standard/lambert material: surface pushed out along its smooth normal (calibre exaggeration) and a rim light in the vessel's own lightened colour. */
 function patchVesselMaterial(m: SurfaceMaterial, uniforms: { inflate: { value: number }; rim: { value: number }; lift: { value: number } }): void {
@@ -123,6 +123,7 @@ export class HeartViewer {
   private readonly labelMode: LabelMode;
   private readonly showHidden: boolean;
   private readonly boost: number;
+  private readonly fill: number;
   private readonly look = { inflate: { value: 0 }, rim: { value: VESSEL_LOOK.rim }, lift: { value: VESSEL_LOOK.lift } };
   private labels: LabelOverlay | null = null;
   private lastLabelAt = -Infinity;
@@ -168,6 +169,8 @@ export class HeartViewer {
   private bounds = new THREE.Box3(new THREE.Vector3(-0.5, -0.5, -0.5), new THREE.Vector3(0.5, 0.5, 0.5));
   private heartCentre = new THREE.Vector3();
   private radius = 0.8;
+  private hullPoints: Float32Array | null = null; // extreme points of the model (see supportPoints): what the camera fit is computed from
+  private autoDist = 0; // the distance the last auto-fit chose; the camera is 'fitted' while it is still there
   private downAt: { x: number; y: number; id: number; touch: boolean } | null = null;
   private multiTouch = false;
 
@@ -188,6 +191,7 @@ export class HeartViewer {
     this.bodyStyle = opts.bodyStyle === 'natural' ? 'natural' : 'neutral';
     this.labelMode = opts.labels === 'off' || opts.labels === 'name' ? opts.labels : 'risk';
     this.showHidden = opts.showHidden ?? !this.lowPower; // an extra transparent pass over every artery: skipped on software GL unless asked for
+    this.fill = clampFill(opts.fill);
     this.boost = typeof opts.vesselBoost === 'number' && Number.isFinite(opts.vesselBoost) ? Math.min(4, Math.max(0, opts.vesselBoost)) : 1;
     this.look.inflate.value = VESSEL_LOOK.inflate * this.boost;
     this.look.lift.value = VESSEL_LOOK.lift * (this.lowPower ? VESSEL_LOOK.lowPowerScale : 1);
@@ -281,12 +285,20 @@ export class HeartViewer {
     if (this.disposed) return;
     this.userMoved = false;
     const h = this.homePose();
-    this.startTween(h.dir, h.dist, h.target);
+    this.autoDist = h.dist;
+    this.applyZoomLimits();
+    this.startTween(h.dir, h.dist, h.target, true);
   }
 
-  /** Re-measure the container and redraw. Also called automatically by a ResizeObserver. */
+  /**
+   * Re-measure the container, re-frame the camera for the new shape and redraw. Also called automatically by a ResizeObserver.
+   * At the home view the heart is re-fitted from scratch. If the user orbited or panned but did not zoom (the camera is still at the
+   * auto-fit distance) the orbit angle is kept and the distance re-fitted for it. A deliberately zoomed or vessel-focused view keeps its
+   * zoom relative to the canvas instead (the same share of the heart stays in frame).
+   */
   resize(): void {
     if (this.disposed || !this.renderer || !this.canvas) return;
+    const prevAspect = this.camera.aspect;
     const w = Math.max(1, this.container.clientWidth), h = Math.max(1, this.container.clientHeight);
     if (this.container.clientHeight === 0 && !this.warnedSize) { this.warnedSize = true; console.warn('[HeartViewer] the container has no height; give it an explicit size (CSS height or flex/grid sizing)'); }
     const pr = computePixelRatio(w, h, window.devicePixelRatio, renderBudget(this.lowPower));
@@ -294,14 +306,24 @@ export class HeartViewer {
     this.renderer.setSize(w, h, false); // clears the canvas: redraw synchronously below so a resize never flashes blank
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
-    if (!this.userMoved && !this.tween) this.applyPose(this.homePose());
-    if (this.controls) this.controls.maxDistance = this.radius * 6;
+    this.refit(prevAspect);
     this.renderNow();
   }
 
   getStatus(): ViewerStatus {
     const fps = this.disposed ? undefined : this.meter.fps(performance.now());
     return { ...this.status, ...(fps !== undefined ? { fps } : {}) };
+  }
+
+  /** Diagnostics for tests and tooling: canvas size, camera distance versus the auto-fit distance, and the projected silhouette in CSS px. */
+  getFraming(): ViewerFraming {
+    const w = Math.max(1, this.container.clientWidth), h = Math.max(1, this.container.clientHeight);
+    const cur = this.currentPose();
+    const e = this.hullPoints && this.hullPoints.length ? projectExtent(this.hullPoints, [cur.dir.x, cur.dir.y, cur.dir.z], [cur.target.x, cur.target.y, cur.target.z], cur.dist, FOV, this.camera.aspect || 1) : null;
+    return {
+      width: w, height: h, distance: cur.dist, autoDistance: this.autoDist, direction: [cur.dir.x, cur.dir.y, cur.dir.z], fitted: this.isFitted(cur.dist),
+      silhouette: e ? { x0: (e.x0 * 0.5 + 0.5) * w, x1: (e.x1 * 0.5 + 0.5) * w, y0: (-e.y1 * 0.5 + 0.5) * h, y1: (-e.y0 * 0.5 + 0.5) * h } : null,
+    };
   }
 
   dispose(): void {
@@ -376,7 +398,7 @@ export class HeartViewer {
     c.enablePan = true;
     c.screenSpacePanning = true;
     c.minDistance = 0.8;
-    c.maxDistance = 5;
+    c.maxDistance = 5; // refined by applyZoomLimits() once the model (and so the fit distance) is known
     c.addEventListener('change', () => {
       this.clampPan();
       this.invalidate();
@@ -507,13 +529,13 @@ export class HeartViewer {
     for (const b of bodies) if (b.chamber) chambers.expandByObject(b.mesh);
     this.heartCentre = (chambers.isEmpty() ? this.bounds : chambers).getCenter(new THREE.Vector3());
     this.radius = this.bounds.getBoundingSphere(new THREE.Sphere()).radius;
+    this.hullPoints = supportPoints(worldVertices(root));
     for (const v of this.vessels.values()) {
       v.samples = labelSamples(v.soup.pos, this.heartCentre);
       const n = v.soup.pos.length / 3, stride = Math.max(1, Math.floor(n / 160));
       for (let i = 0; i < n; i += stride) v.outline.push(new THREE.Vector3(v.soup.pos[i * 3], v.soup.pos[i * 3 + 1], v.soup.pos[i * 3 + 2]));
     }
     if (!this.lowPower) this.createGlow();
-    if (this.controls) this.controls.maxDistance = this.radius * 6;
 
     let triangles = 0;
     root.traverse((o) => {
@@ -525,7 +547,7 @@ export class HeartViewer {
     this.anchorCache.clear();
     this.publishStatus({ loaded: true, usingFallback: level, triangles });
     this.userMoved = false;
-    this.applyPose(this.homePose());
+    this.applyHome();
     this.applyStates();
     this.applyGlow();
     this.applyEmphasis();
@@ -650,9 +672,71 @@ export class HeartViewer {
 
   // ---- camera -----------------------------------------------------------------------
 
+  /** Distance at which a sphere around the whole model fits: only its ratio between two canvas shapes is used (it is independent of the orbit angle). */
+  private sphereFit(aspect: number): number {
+    return fitDistance(this.radius, FOV, aspect || 1);
+  }
+
+  /** Fit the model's silhouette to `fill` of the canvas for a camera at target + dir * dist, optionally re-centring the look-at point. */
+  private fitFor(dir: THREE.Vector3, target: THREE.Vector3, centre: boolean): { dist: number; target: THREE.Vector3 } {
+    const pts = this.hullPoints;
+    if (!pts || pts.length < 9) return { dist: this.sphereFit(this.camera.aspect) / 0.88, target: target.clone() }; // no model yet: the bounding sphere, a little loosely
+    const r = fitPoints(pts, [dir.x, dir.y, dir.z], [target.x, target.y, target.z], FOV, this.camera.aspect || 1, this.fill, centre);
+    return { dist: r.dist, target: new THREE.Vector3(r.target[0], r.target[1], r.target[2]) };
+  }
+
   private homePose(): { dir: THREE.Vector3; dist: number; target: THREE.Vector3 } {
-    const aspect = this.camera.aspect || 1;
-    return { dir: HOME_DIR.clone(), dist: fitDistance(this.radius * 0.8, FOV, aspect), target: this.bounds.getCenter(new THREE.Vector3()) };
+    const dir = HOME_DIR.clone();
+    const f = this.fitFor(dir, this.bounds.getCenter(new THREE.Vector3()), true);
+    return { dir, dist: f.dist, target: f.target };
+  }
+
+  private applyHome(): void {
+    const h = this.homePose();
+    this.autoDist = h.dist;
+    this.applyZoomLimits(); // before the pose: OrbitControls clamps the distance to its limits
+    this.applyPose(h);
+  }
+
+  /** Zoom limits follow the framing: you can always get about 2.5x closer than the fit, and out to at least 2.5x of it (a tall, narrow canvas fits from further away). */
+  private applyZoomLimits(): void {
+    if (!this.controls) return;
+    const fit = this.autoDist || this.sphereFit(this.camera.aspect);
+    this.controls.minDistance = Math.min(0.8, fit * 0.4);
+    this.controls.maxDistance = Math.max(this.radius * 6, fit * 2.5);
+  }
+
+  private isFitted(dist: number): boolean {
+    return this.autoDist > 0 && Math.abs(dist - this.autoDist) <= 0.02 * this.autoDist;
+  }
+
+  /** Re-frame after the canvas changed shape (see resize()). */
+  private refit(prevAspect: number): void {
+    if (this.tween) {
+      // a camera move is under way: aim it at the destination framed for the new shape
+      const t = this.tween;
+      if (t.home) {
+        const h = this.homePose();
+        this.autoDist = h.dist;
+        t.d1 = h.dir.clone().normalize(); t.r1 = h.dist; t.t1 = h.target;
+      } else {
+        const k = this.sphereFit(this.camera.aspect) / this.sphereFit(prevAspect);
+        t.r0 *= k; t.r1 *= k;
+      }
+      this.applyZoomLimits();
+      return;
+    }
+    if (!this.userMoved || !this.model) { this.applyHome(); return; }
+    const cur = this.currentPose();
+    let dist: number;
+    if (this.isFitted(cur.dist)) {
+      dist = this.fitFor(cur.dir, cur.target, false).dist; // orbited or panned only: same angle, distance re-fitted for the new shape
+      this.autoDist = dist;
+    } else {
+      dist = cur.dist * (this.sphereFit(this.camera.aspect) / this.sphereFit(prevAspect)); // zoomed or focused on a vessel: keep the same share of the heart in frame
+    }
+    this.applyZoomLimits();
+    this.applyPose({ dir: cur.dir, dist, target: cur.target });
   }
 
   private applyPose(p: { dir: THREE.Vector3; dist: number; target: THREE.Vector3 }): void {
@@ -674,11 +758,11 @@ export class HeartViewer {
     return { dir: off.divideScalar(dist), dist, target };
   }
 
-  private startTween(dir: THREE.Vector3, dist: number, target: THREE.Vector3): void {
+  private startTween(dir: THREE.Vector3, dist: number, target: THREE.Vector3, home = false): void {
     if (!this.renderer) return;
     const from = this.currentPose();
     if (this.reduced) { this.tween = null; this.applyPose({ dir, dist, target }); this.invalidate(); return; }
-    this.tween = { start: -1, dur: TWEEN_MS, d0: from.dir, d1: dir.clone().normalize(), r0: from.dist, r1: dist, t0: from.target, t1: target.clone() };
+    this.tween = { home, start: -1, dur: TWEEN_MS, d0: from.dir, d1: dir.clone().normalize(), r0: from.dist, r1: dist, t0: from.target, t1: target.clone() };
     this.invalidate();
   }
 
@@ -691,7 +775,7 @@ export class HeartViewer {
     dir.y = Math.min(0.5, Math.max(-0.5, dir.y)); // never look straight down or up at the heart
     dir.normalize();
     const target = this.heartCentre.clone().lerp(a.point, 0.45);
-    const dist = Math.min(Math.max(this.currentPose().dist, 1.4), fitDistance(this.radius * 0.8, FOV, this.camera.aspect || 1) * 0.8);
+    const dist = Math.min(Math.max(this.currentPose().dist, 1.4), this.homePose().dist * 0.8);
     this.userMoved = true;
     this.startTween(dir, dist, target);
   }
@@ -1070,6 +1154,25 @@ export class HeartViewer {
     this.lastAnchors = sig;
     this.anchorEmitter.emit(out);
   }
+}
+
+/** World-space positions (flat x,y,z) of every vertex of the model's real meshes (not the outline helpers). */
+function worldVertices(root: THREE.Object3D): Float32Array {
+  const parts: Float32Array[] = [];
+  const v = new THREE.Vector3();
+  root.updateMatrixWorld(true);
+  root.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh || m.userData.hull || !m.geometry?.attributes.position) return;
+    const p = m.geometry.attributes.position;
+    const a = new Float32Array(p.count * 3);
+    for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld); a[i * 3] = v.x; a[i * 3 + 1] = v.y; a[i * 3 + 2] = v.z; }
+    parts.push(a);
+  });
+  const all = new Float32Array(parts.reduce((n, a) => n + a.length, 0));
+  let off = 0;
+  for (const a of parts) { all.set(a, off); off += a.length; }
+  return all;
 }
 
 /** Copy of a geometry with vertices welded by position and recomputed smooth normals, used only for the selection outline. */

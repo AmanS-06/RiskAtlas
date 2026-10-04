@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ViewerCanvas } from './ViewerCanvas';
 
@@ -23,7 +23,8 @@ vi.mock('./viewerAdapter', () => {
       return () => void (this.cb = null);
     };
     resetView = () => {};
-    resize = () => {};
+    resizes = 0;
+    resize = () => void this.resizes++;
     getStatus = () => ({ loaded: true, usingFallback: 'none', webgl: true, triangles: 1000 });
     dispose = () => void (this.disposed = true);
   }
@@ -36,6 +37,7 @@ type Fake = {
   selected: string | null | undefined;
   cb: ((id: string | null) => void) | null;
   disposed: boolean;
+  resizes: number;
   opts: { modelUrl: string; liteModelUrl: string };
 };
 const latest = () => fake.instances.at(-1) as Fake;
@@ -87,5 +89,51 @@ describe('ViewerCanvas', () => {
     const v = latest();
     unmount();
     expect(v.disposed).toBe(true);
+  });
+
+  describe('Enlarge button', () => {
+    it('is absent unless the page provides a handler', async () => {
+      render(<ViewerCanvas {...props} />);
+      await waitFor(() => expect(screen.getByTestId('viewer')).toHaveAttribute('data-ready', 'true'));
+      expect(screen.queryByTestId('viewer-enlarge')).toBeNull();
+    });
+
+    it('reflects the state in its label and aria-pressed, and asks the page to toggle on click and on Enter/Space (native button)', async () => {
+      const onToggle = vi.fn();
+      const { rerender } = render(<ViewerCanvas {...props} enlarged={false} onToggleEnlarged={onToggle} />);
+      await waitFor(() => expect(screen.getByTestId('viewer')).toHaveAttribute('data-ready', 'true'));
+      const btn = screen.getByTestId('viewer-enlarge');
+      expect(btn.tagName).toBe('BUTTON');
+      expect(btn).toHaveTextContent('Enlarge');
+      expect(btn).toHaveAttribute('aria-pressed', 'false');
+      fireEvent.click(btn);
+      expect(onToggle).toHaveBeenCalledTimes(1);
+      rerender(<ViewerCanvas {...props} enlarged onToggleEnlarged={onToggle} />);
+      expect(screen.getByTestId('viewer-enlarge')).toHaveTextContent('Shrink');
+      expect(screen.getByTestId('viewer-enlarge')).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    it('Escape leaves the enlarged view and puts focus back on the button; it does nothing when not enlarged', async () => {
+      const onToggle = vi.fn();
+      const { rerender } = render(<ViewerCanvas {...props} enlarged={false} onToggleEnlarged={onToggle} />);
+      await waitFor(() => expect(screen.getByTestId('viewer')).toHaveAttribute('data-ready', 'true'));
+      fireEvent.keyDown(document.body, { key: 'Escape' });
+      expect(onToggle).not.toHaveBeenCalled();
+      rerender(<ViewerCanvas {...props} enlarged onToggleEnlarged={onToggle} />);
+      fireEvent.keyDown(document.body, { key: 'Enter' });
+      expect(onToggle).not.toHaveBeenCalled();
+      fireEvent.keyDown(document.body, { key: 'Escape' });
+      expect(onToggle).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('viewer-enlarge')).toHaveFocus();
+    });
+
+    it('asks the viewer to re-measure and re-fit after the layout changed', async () => {
+      const { rerender } = render(<ViewerCanvas {...props} enlarged={false} onToggleEnlarged={() => {}} />);
+      await waitFor(() => expect(screen.getByTestId('viewer')).toHaveAttribute('data-ready', 'true'));
+      await waitFor(() => expect(latest().resizes).toBeGreaterThanOrEqual(1));
+      const before = latest().resizes;
+      rerender(<ViewerCanvas {...props} enlarged onToggleEnlarged={() => {}} />);
+      await waitFor(() => expect(latest().resizes).toBeGreaterThan(before));
+    });
   });
 });

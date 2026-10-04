@@ -247,7 +247,7 @@ try {
       for (const id of ['target-CAD', 'target-LAD', 'target-LCX', 'target-RCA', 'results-panel', 'viewer'])
         assert(await fits(page, id), `${w}x${h}: ${id} fully inside the viewport at scroll 0 (${JSON.stringify(await page.getByTestId(id).boundingBox())})`);
       const heart = await page.getByTestId('viewer').boundingBox();
-      assert(heart.height >= (h >= 1000 ? 380 : 240), `${w}x${h}: heart view is ${heart.height}px tall`);
+      assert(heart.height >= (h >= 1000 ? 560 : 330), `${w}x${h}: heart view is ${heart.height}px tall`);
       const stage = await page.locator('.stage').evaluate((e) => ({ client: e.clientHeight, scroll: e.scrollHeight }));
       assert(stage.scroll <= stage.client + 1, `${w}x${h}: the left column needs no inner scrolling (${JSON.stringify(stage)})`);
       equal(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), 0, 'no horizontal scroll');
@@ -319,6 +319,248 @@ try {
       await page.evaluate(() => window.scrollTo(0, 0));
       const left = (await page.getByTestId('results-panel').boundingBox()).x;
       assert(left >= 15.5 && left <= 16.5, `${w}x${h}: 16px gutter (${left})`);
+      await page.context().close();
+    }
+  });
+
+  console.log('\nViewer size: framing, labels, refit, enlarge');
+  // The real viewer is reachable in the dev server as window.__heartViewer (ViewerCanvas, DEV only). getFraming() reports the projected silhouette in CSS px.
+  const framing = (page) =>
+    page.evaluate(() => {
+      const f = window.__heartViewer.getFraming();
+      const q = f.silhouette;
+      const fx = (q.x1 - q.x0) / f.width,
+        fy = (q.y1 - q.y0) / f.height;
+      return { ...f, fx, fy, limiting: Math.max(fx, fy), inside: q.x0 >= -0.5 && q.y0 >= -0.5 && q.x1 <= f.width + 0.5 && q.y1 <= f.height + 0.5 };
+    });
+  const viewerReady = async (page) => {
+    await page.waitForFunction(() => !!window.__heartViewer && window.__heartViewer.getStatus().loaded);
+    await page.waitForTimeout(500);
+  };
+  const SHAPES = [
+    [1920, 1030],
+    [1920, 890],
+    [1920, 1080],
+    [1440, 900],
+    [1366, 768],
+    [1024, 768],
+    [768, 1024],
+    [390, 844],
+    [320, 568],
+  ];
+
+  await test('the heart fills 80-95 percent of the limiting dimension of its box at the home view, for wide, laptop, tablet and phone shapes, and the viewer is tall', async () => {
+    for (const [w, h] of SHAPES) {
+      const page = await openWithResult(w, h);
+      await viewerReady(page);
+      const f = await framing(page);
+      assert(
+        f.limiting >= 0.8 && f.limiting <= 0.95,
+        `${w}x${h}: silhouette fills ${(f.limiting * 100).toFixed(1)}% of the limiting dimension (canvas ${f.width}x${f.height})`,
+      );
+      assert(f.inside, `${w}x${h}: the silhouette stays inside the canvas ${JSON.stringify(f.silhouette)}`);
+      assert(f.fitted, `${w}x${h}: the camera is at the auto-fit distance`);
+      const box = await page.getByTestId('viewer').boundingBox();
+      if (w >= 1366 && h >= 700) {
+        const min = { '1920x1030': 540, '1920x890': 400, '1920x1080': 590, '1440x900': 330, '1366x768': 195 }[`${w}x${h}`];
+        assert(box.height >= min, `${w}x${h}: viewer is ${Math.round(box.height)}px tall (>= ${min})`);
+      } else if (w < 1024) {
+        assert(box.height >= 0.5 * h, `${w}x${h}: viewer is ${Math.round(box.height)}px, at least half of the screen height`);
+        assert(box.width >= w - 36, `${w}x${h}: full width inside 16px gutters (${box.width})`);
+      }
+      console.log(
+        `        ${w}x${h}: viewer ${Math.round(box.width)}x${Math.round(box.height)}, heart fills ${(f.limiting * 100).toFixed(0)}% of the limiting dimension`,
+      );
+      noProblems(page, `${w}x${h}`);
+      await page.context().close();
+    }
+  });
+
+  await test('vessel label chips stay inside the canvas, at every shape, with and without a selected vessel', async () => {
+    for (const [w, h] of SHAPES) {
+      const page = await openWithResult(w, h);
+      await viewerReady(page);
+      for (const selected of [null, 'LAD', 'RCA']) {
+        if (selected) {
+          await page.getByTestId(`target-${selected}`).click();
+          await page.waitForTimeout(1300);
+        }
+        const r = await page.evaluate(() => {
+          const box = document.querySelector('[data-testid=viewer]').getBoundingClientRect();
+          const out = [];
+          for (const root of document.querySelectorAll('[data-viewer-labels] [data-label]')) {
+            if (getComputedStyle(root).display === 'none') continue;
+            const c = root.querySelector('span').getBoundingClientRect();
+            out.push({ id: root.dataset.label, l: c.left - box.left, t: c.top - box.top, r: box.right - c.right, b: box.bottom - c.bottom });
+          }
+          return out;
+        });
+        assert(r.length === 3, `${w}x${h} ${selected}: three label chips are shown (${r.length})`);
+        for (const c of r)
+          assert(c.l >= -0.5 && c.t >= -0.5 && c.r >= -0.5 && c.b >= -0.5, `${w}x${h} ${selected}: ${c.id} chip is clipped (${JSON.stringify(c)})`);
+      }
+      await page.context().close();
+    }
+  });
+
+  await test('the camera is re-fitted when the window changes shape: home view, orbited view (same angle), reset; a zoomed view keeps its zoom', async () => {
+    const page = await openWithResult(1920, 1030);
+    await viewerReady(page);
+    const settle = () => page.waitForTimeout(700);
+    const home = await framing(page);
+    // 1. home view follows the box: shorter, then phone-shaped, then back
+    for (const [w, h] of [
+      [1920, 890],
+      [390, 844],
+      [1440, 900],
+      [1920, 1030],
+    ]) {
+      await page.setViewportSize({ width: w, height: h });
+      await settle();
+      const f = await framing(page);
+      assert(
+        f.limiting >= 0.8 && f.limiting <= 0.95 && f.inside && f.fitted,
+        `home view after resizing to ${w}x${h}: fills ${(f.limiting * 100).toFixed(1)}% (inside ${f.inside}, fitted ${f.fitted})`,
+      );
+    }
+    const back = await framing(page);
+    assert(
+      Math.abs(back.distance - home.distance) < 0.01 * home.distance && Math.abs(back.height - home.height) <= 2,
+      'back at the first size: same distance, same box',
+    );
+    // 2. orbit, then resize: same angle, distance re-fitted
+    await page.getByTestId('viewer').focus();
+    for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowLeft');
+    await settle();
+    const orbited = await framing(page);
+    const angle = (a, b) =>
+      (Math.acos(Math.min(1, a.direction[0] * b.direction[0] + a.direction[1] * b.direction[1] + a.direction[2] * b.direction[2])) * 180) / Math.PI;
+    assert(angle(orbited, home) > 10, `the camera orbited (${angle(orbited, home).toFixed(1)} degrees)`);
+    assert(orbited.fitted, 'rotating alone does not leave the auto-fit distance');
+    for (const [w, h] of [
+      [390, 844],
+      [1920, 890],
+    ]) {
+      await page.setViewportSize({ width: w, height: h });
+      await settle();
+      const f = await framing(page);
+      assert(angle(f, orbited) < 0.5, `${w}x${h}: orbit angle kept (${angle(f, orbited).toFixed(2)} degrees off)`);
+      assert(
+        f.fitted && f.limiting >= 0.7 && f.limiting <= 0.95 && f.inside,
+        `${w}x${h}: orbited view re-fitted (silhouette span; the pivot stays where the user left it), fills ${(f.limiting * 100).toFixed(1)}% (inside ${f.inside})`,
+      );
+    }
+    // 3. deliberately zoomed: no refit; the share of the heart in frame is kept
+    await page.setViewportSize({ width: 1920, height: 1030 });
+    await settle();
+    await page.getByTestId('viewer').focus();
+    for (let i = 0; i < 4; i++) await page.keyboard.press('+');
+    await settle();
+    const zoomed = await framing(page);
+    assert(
+      !zoomed.fitted && zoomed.distance < 0.8 * zoomed.autoDistance,
+      `zoomed in (${zoomed.distance.toFixed(2)} vs auto ${zoomed.autoDistance.toFixed(2)})`,
+    );
+    await page.setViewportSize({ width: 1920, height: 890 });
+    await settle();
+    const zoomed2 = await framing(page);
+    assert(!zoomed2.fitted, 'a zoomed view is not snapped back to the auto-fit distance by a resize');
+    assert(Math.abs(zoomed2.fy - zoomed.fy) < 0.03, `zoomed view keeps its share of the box height (${zoomed.fy.toFixed(2)} -> ${zoomed2.fy.toFixed(2)})`);
+    // 4. reset view refits
+    await page.getByRole('button', { name: 'Reset view' }).click();
+    await settle();
+    const reset = await framing(page);
+    assert(
+      reset.fitted && reset.limiting >= 0.8 && reset.limiting <= 0.95 && angle(reset, home) < 0.5,
+      `reset view: fitted ${reset.fitted}, fills ${(reset.limiting * 100).toFixed(1)}%, ${angle(reset, home).toFixed(1)} degrees from home`,
+    );
+    // 5. zoom range: at least 2x out and 2x in from the fit
+    await page.getByTestId('viewer').focus();
+    for (let i = 0; i < 40; i++) await page.keyboard.press('-');
+    await settle();
+    const out = await framing(page);
+    assert(out.distance >= 2 * out.autoDistance, `can zoom out to twice the fit distance (${out.distance.toFixed(2)} vs ${out.autoDistance.toFixed(2)})`);
+    for (let i = 0; i < 80; i++) await page.keyboard.press('+');
+    await settle();
+    const inn = await framing(page);
+    assert(inn.distance <= 0.5 * inn.autoDistance, `can zoom in to half the fit distance (${inn.distance.toFixed(2)} vs ${inn.autoDistance.toFixed(2)})`);
+    noProblems(page, 'framing');
+    await page.context().close();
+  });
+
+  await test('Enlarge / Shrink: keyboard operable, aria-pressed, Escape exits, the form column steps aside, the heart is re-fitted and much larger', async () => {
+    for (const [w, h] of [
+      [1920, 1030],
+      [1440, 900],
+      [390, 844],
+    ]) {
+      const page = await openWithResult(w, h);
+      await viewerReady(page);
+      const btn = page.getByTestId('viewer-enlarge');
+      equal(await btn.innerText(), 'Enlarge', 'label');
+      equal(await btn.getAttribute('aria-pressed'), 'false', 'starts un-pressed');
+      const normal = await page.getByTestId('viewer').boundingBox();
+      const normalFit = await framing(page);
+      await btn.focus();
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(900);
+      equal(await btn.getAttribute('aria-pressed'), 'true', `${w}x${h}: pressed after Enter`);
+      equal(await btn.innerText(), 'Shrink', 'label flips');
+      assert(await page.locator('.workspace.is-enlarged').count(), 'workspace is in enlarged state');
+      const big = await page.getByTestId('viewer').boundingBox();
+      const bigFit = await framing(page);
+      assert(
+        big.height >= normal.height * 1.3 && (w < 1024 || big.width * big.height >= normal.width * normal.height * 1.6),
+        `${w}x${h}: enlarged viewer ${Math.round(big.width)}x${Math.round(big.height)} vs ${Math.round(normal.width)}x${Math.round(normal.height)}`,
+      );
+      assert(
+        bigFit.limiting >= 0.8 && bigFit.limiting <= 0.95 && bigFit.inside && bigFit.fitted,
+        `${w}x${h}: enlarged view re-fitted (${(bigFit.limiting * 100).toFixed(0)}%)`,
+      );
+      assert(
+        bigFit.silhouette.y1 - bigFit.silhouette.y0 > (normalFit.silhouette.y1 - normalFit.silhouette.y0) * 1.25 || w < 1024,
+        `${w}x${h}: the heart itself is larger`,
+      );
+      if (w >= 1024) {
+        equal(await page.locator('.workbench').evaluate((e) => getComputedStyle(e).display), 'none', 'the form column steps aside');
+        for (const id of ['target-CAD', 'target-LAD', 'target-LCX', 'target-RCA']) assert(await fits(page, id), `${w}x${h} enlarged: ${id} still on screen`);
+        assert(big.width > 0.6 * w, `${w}x${h}: enlarged viewer is wide (${big.width})`);
+      }
+      equal(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), 0, `${w}x${h}: no horizontal scroll`);
+      // Escape from anywhere returns to the normal layout and puts focus back on the button
+      await page.mouse.click(5, 5);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(900);
+      equal(await btn.getAttribute('aria-pressed'), 'false', `${w}x${h}: Escape exits`);
+      assert((await page.locator('.workspace.is-enlarged').count()) === 0, 'back to the normal layout');
+      equal(await page.evaluate(() => document.activeElement?.getAttribute('data-testid')), 'viewer-enlarge', 'focus returns to the button');
+      const again = await page.getByTestId('viewer').boundingBox();
+      assert(
+        Math.abs(again.height - normal.height) <= 2 && Math.abs(again.width - normal.width) <= 2,
+        `${w}x${h}: same size as before (${again.width}x${again.height})`,
+      );
+      assert((await framing(page)).limiting >= 0.8, 're-fitted after shrinking');
+      // Space toggles too, and a click on Shrink exits
+      await btn.focus();
+      await page.keyboard.press('Space');
+      await page.waitForTimeout(400);
+      equal(await btn.getAttribute('aria-pressed'), 'true', 'Space enlarges');
+      await btn.click();
+      await page.waitForTimeout(400);
+      equal(await btn.getAttribute('aria-pressed'), 'false', 'click on Shrink exits');
+      noProblems(page, `${w}x${h} enlarge`);
+      await page.context().close();
+    }
+  });
+
+  await test('axe: 0 serious/critical violations with the view enlarged, light and dark', async () => {
+    for (const scheme of ['light', 'dark']) {
+      const page = await openWithResult(1920, 1030, scheme);
+      await viewerReady(page);
+      await page.getByTestId('viewer-enlarge').click();
+      await page.waitForTimeout(600);
+      const r = await axeScan(page, `enlarged ${scheme}`);
+      assert(r.blocking.length === 0, `${scheme} enlarged: ${JSON.stringify(r.blocking)}`);
       await page.context().close();
     }
   });

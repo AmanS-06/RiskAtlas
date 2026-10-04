@@ -151,6 +151,9 @@ export function ResultsPanel(p: ResultsProps) {
           {selMeta && selResp && (
             <div className="legend" data-testid="legend">
               <h3>Risk bands for {selMeta.label}</h3>
+              <span className="legend-target" aria-hidden="true">
+                {selMeta.mesh ?? selMeta.id}
+              </span>
               <ul>
                 {segments(bands, cutsOf(selMeta, selResp)).map((s) => (
                   <li key={s.band.id}>

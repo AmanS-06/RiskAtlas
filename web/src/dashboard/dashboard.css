@@ -22,7 +22,7 @@
   container: results / inline-size; /* rows switch to the one-line layout when the card itself is wide enough, whatever the screen */
 }
 .panel.results {
-  padding: 12px 14px;
+  padding: 10px 12px;
 }
 .results .hint {
   margin-top: 4px;
@@ -129,12 +129,12 @@
  * bars and numbers aligned from row to row. The overall row uses the same columns with the gauge in front. */
 @container results (min-width: 500px) {
   .target-row {
-    grid-template-columns: minmax(0, 15rem) minmax(70px, 1fr) 3.4rem 7.25rem;
+    grid-template-columns: minmax(0, 15rem) minmax(70px, 1fr) 3.4rem 8rem;
     grid-template-rows: auto auto;
     align-items: center;
     column-gap: 10px;
     row-gap: 0;
-    padding: 5px 12px;
+    padding: 3px 12px;
   }
   .row-main {
     display: contents;
@@ -166,8 +166,8 @@
     grid-row: 2;
   }
   .target-overall {
-    grid-template-columns: 7.5rem minmax(0, 1fr) auto 7.25rem;
-    padding-block: 6px;
+    grid-template-columns: 6.5rem minmax(0, 1fr) auto 8rem;
+    padding-block: 4px;
   }
   .target-overall .gauge {
     grid-column: 1;
@@ -185,6 +185,56 @@
     grid-column: 3;
     font-size: var(--text-display);
     padding-inline: 4px;
+  }
+}
+
+/* Very wide card (the sticky column on a 1700 px or wider window): the overall result becomes a tile beside the three vessel rows instead of a
+ * row above them, which saves about 70 px of height for the 3D view above. Same elements, same order in the DOM, so reading and tab order are unchanged. */
+@container results (min-width: 780px) {
+  .target-list {
+    grid-template-columns: 14rem minmax(0, 1fr);
+    column-gap: 8px;
+    row-gap: 4px;
+  }
+  .target-list > li:first-child {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+  }
+  .target-list > li:not(:first-child) {
+    grid-column: 2;
+  }
+  .target-list > li:first-child > .target-row {
+    height: 100%;
+  }
+  /* the tile is a wrapping flex box: percentage and band chip share a line when they fit (Segoe UI) and stack when they do not (wider fallback fonts) */
+  .target-overall {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-content: center;
+    align-items: center;
+    gap: 2px 8px;
+    text-align: center;
+  }
+  .target-overall .gauge {
+    flex: 0 0 100%;
+    width: 100%;
+    height: 3.9rem;
+  }
+  .target-overall .row-title {
+    flex: 0 0 100%;
+    font-size: var(--text-base);
+  }
+  .target-overall .row-prob {
+    flex: 0 0 auto;
+    font-size: 1.875rem;
+    padding-inline: 0;
+  }
+  .target-overall .band-chip {
+    flex: 0 0 auto;
+  }
+  .target-overall > .row-interval {
+    flex: 0 0 100%;
   }
 }
 
@@ -240,8 +290,8 @@
 }
 
 .legend {
-  margin-top: 8px;
-  padding: 6px 10px;
+  margin-top: 6px;
+  padding: 3px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
@@ -700,8 +750,12 @@ tbody th {
   margin-top: 8px;
 }
 
-/* Short laptop screens: the band legend keeps its chips and drops its caption so it stays on one line. */
-@media (min-width: 1024px) and (max-height: 820px) {
+/* Side-by-side layout: the band legend is one line. Its caption ("Risk bands for Overall CAD") stays for screen readers and a short
+ * visible tag (CAD, LAD, ...) names the target the cut points belong to; the full caption is shown wherever the card is stacked (phones, tablets). */
+.legend-target {
+  display: none;
+}
+@media (min-width: 1024px) {
   .legend h3 {
     position: absolute;
     width: 1px;
@@ -709,5 +763,38 @@ tbody th {
     overflow: hidden;
     clip: rect(0 0 0 0);
     white-space: nowrap;
+  }
+  .legend {
+    gap: 4px 10px;
+  }
+  .legend ul {
+    gap: 4px 10px;
+  }
+  .legend-target {
+    display: inline-block;
+    padding: 0 6px;
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    font: 600 0.75rem var(--font-mono);
+    color: var(--text-muted);
+  }
+}
+/* A card narrower than the bands need at full size: smaller chips and no target tag, so the legend keeps to one line. */
+@media (min-width: 1024px) {
+  @container results (max-width: 640px) {
+    .legend-target {
+      display: none;
+    }
+  }
+  @container results (max-width: 720px) {
+    .legend li {
+      font-size: 0.75rem;
+      gap: 3px;
+    }
+    .legend .chip {
+      font-size: 0.75rem;
+      padding: 1px 7px 1px 6px;
+      gap: 4px;
+    }
   }
 }

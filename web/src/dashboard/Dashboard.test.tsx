@@ -52,6 +52,26 @@ describe('page chrome', () => {
   });
 });
 
+describe('enlarge toggle', () => {
+  it('Enlarge puts the workspace in the enlarged state (the 3D view takes the width), Shrink and Escape go back; the form stays mounted', async () => {
+    const user = userEvent.setup();
+    await loaded();
+    const main = screen.getByRole('main');
+    const btn = await screen.findByTestId('viewer-enlarge', undefined, waitOpts);
+    expect(btn).toHaveAttribute('aria-pressed', 'false');
+    expect(main).not.toHaveClass('is-enlarged');
+    await user.click(btn);
+    expect(main).toHaveClass('is-enlarged');
+    expect(screen.getByTestId('viewer-enlarge')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('patient-form')).toBeInTheDocument(); // hidden by CSS only: nothing typed is lost
+    await user.keyboard('{Escape}');
+    expect(main).not.toHaveClass('is-enlarged');
+    await user.click(screen.getByTestId('viewer-enlarge'));
+    await user.click(screen.getByTestId('viewer-enlarge'));
+    expect(main).not.toHaveClass('is-enlarged');
+  });
+});
+
 describe('input form is built from /meta', () => {
   it('groups, controls and units come from config', async () => {
     await loaded();

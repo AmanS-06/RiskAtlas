@@ -41,6 +41,12 @@ export interface HeartViewerOptions {
   labels?: LabelMode;
   /** Draw a faint see-through copy of arteries where the heart wall hides them, so all three stay visible from any side. Default: true, except in low-power mode (software GL), where the extra pass is skipped. */
   showHidden?: boolean;
+  /**
+   * How much of the limiting canvas dimension (the shorter one, after the aspect ratio) the heart's silhouette, aorta and arteries included, fills
+   * at the home view, 0.5 to 0.98. Default 0.88: the remaining ~6% each side keeps the label chips and the halo inside the canvas. The camera is
+   * re-fitted to this on every resize and on resetView(); see docs/viewer.md "Framing".
+   */
+  fill?: number;
 }
 
 export type BodyStyle = 'neutral' | 'natural';
@@ -55,6 +61,22 @@ export interface ViewerStatus {
   triangles: number;
   /** Frames per second measured while the scene was continuously redrawn (orbiting, tween); undefined when idle. */
   fps?: number;
+}
+
+/** Diagnostic snapshot of the camera framing (see HeartViewer.getFraming). */
+export interface ViewerFraming {
+  /** Canvas size in CSS px. */
+  width: number;
+  height: number;
+  /** Camera distance now, and the distance the auto-fit chose for the current orbit angle. */
+  distance: number;
+  autoDistance: number;
+  /** Unit vector from the orbit centre to the camera (the orbit angle). */
+  direction: [number, number, number];
+  /** true while the camera is still at the auto-fit distance (so a resize re-fits it); false after the user zoomed or selected a vessel. */
+  fitted: boolean;
+  /** Projected silhouette of the model (arteries and aorta included) in CSS px from the canvas's top-left; null before a model is loaded. */
+  silhouette: { x0: number; y0: number; x1: number; y1: number } | null;
 }
 
 /** A feature callout to pin to a mesh node (config/features.yaml `anchor`). */

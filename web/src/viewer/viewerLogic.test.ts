@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   Emitter, FrameMeter, SelectionModel, UNCERTAINTY, VESSEL_IDS, applyUncertainty, clamp01, computePixelRatio, describeSummary, describeVessel,
   desaturationAmount, easeInOutCubic, fitDistance, glowHalo, glowSize, glowTint, isSoftwareRenderer, isVesselId, keyAction, luminance, missingVesselNodes,
-  overallGlow, parseHex, planLoadSteps, BODY_NEUTRAL, NEUTRAL_TINT_SHARE, UNSCORED_VESSEL, VESSEL_LOOK, bodyColor, chooseLabelSpot, deltaE, labelPlacement, separateChips, labelText, rgbToLab, simulateVision, pointTriangleDistance, pulseActive, pulseExtra, renderBudget, runLoadChain, toHex, tweenProgress, withTimeout, EMISSIVE, PULSE,
+  overallGlow, parseHex, planLoadSteps, FRAME_FILL, clampFill, fitPoints, projectExtent, supportPoints, cameraBasis, BODY_NEUTRAL, NEUTRAL_TINT_SHARE, UNSCORED_VESSEL, VESSEL_LOOK, bodyColor, chooseLabelSpot, deltaE, labelPlacement, separateChips, labelText, rgbToLab, simulateVision, pointTriangleDistance, pulseActive, pulseExtra, renderBudget, runLoadChain, toHex, tweenProgress, withTimeout, EMISSIVE, PULSE,
 } from './viewerLogic';
 import type { VesselState } from './types';
 
@@ -451,5 +451,89 @@ describe('chooseLabelSpot', () => {
     const edge = chooseLabelSpot({ x: 598, y: 298 }, { x: 300, y: 150 }, chip, box, []);
     expect(edge.x + chip.w / 2).toBeLessThanOrEqual(box.w); expect(edge.y + chip.h / 2).toBeLessThanOrEqual(box.h);
     expect(Number.isFinite(edge.angle + edge.length)).toBe(true);
+  });
+});
+
+describe('camera framing (silhouette fit)', () => {
+  // a heart-like cloud: a tall ellipsoid (0.5 x 0.8 x 0.4 half-extents) plus a thin "aorta" sticking out of the top, off centre
+  const cloud = (() => {
+    const p: number[] = [];
+    for (let i = 0; i < 4000; i++) {
+      const u = Math.acos(1 - 2 * ((i + 0.5) / 4000)), v = i * Math.PI * (3 - Math.sqrt(5));
+      p.push(0.5 * Math.sin(u) * Math.cos(v) + 0.05, 0.8 * Math.cos(u), 0.4 * Math.sin(u) * Math.sin(v));
+    }
+    for (let i = 0; i < 200; i++) p.push(0.3 + 0.05 * Math.cos(i), 0.8 + (i / 200) * 0.45, 0.05 * Math.sin(i));
+    return Float32Array.from(p);
+  })();
+  const HOME: [number, number, number] = [0.85 / 1.3, 0.3 / 1.3, 1 / 1.3];
+  const FOV = 35;
+  const limiting = (e: { x0: number; x1: number; y0: number; y1: number }) => Math.max((e.x1 - e.x0) / 2, (e.y1 - e.y0) / 2);
+
+  it('fills exactly `fill` of the limiting dimension, for wide, square, tall and phone-shaped canvases', () => {
+    for (const aspect of [3, 1.6, 1, 0.6, 0.35]) {
+      for (const fill of [0.7, FRAME_FILL, 0.95]) {
+        const f = fitPoints(cloud, HOME, [0, 0.2, 0], FOV, aspect, fill, true);
+        const e = projectExtent(cloud, HOME, [f.target[0], f.target[1], f.target[2]], f.dist, FOV, aspect)!;
+        expect(limiting(e)).toBeGreaterThan(fill - 0.03);
+        expect(limiting(e)).toBeLessThanOrEqual(fill + 1e-6);
+        expect(Math.max(Math.abs(e.x0), Math.abs(e.x1), Math.abs(e.y0), Math.abs(e.y1))).toBeLessThanOrEqual(fill + 0.06); // centred: nothing sticks out much further on the other side
+      }
+    }
+  });
+
+  it('never lets any point leave the canvas, whatever the orbit angle', () => {
+    for (const dir of [HOME, [0, 0, 1], [-1, 0.2, 0.1], [0.1, 1, 0.1], [0, -1, 0.3], [0.7, -0.4, -0.6]] as [number, number, number][]) {
+      for (const aspect of [2.5, 1, 0.45]) {
+        const f = fitPoints(cloud, dir, [0, 0.2, 0], FOV, aspect, 0.88, false);
+        const e = projectExtent(cloud, dir, f.target as [number, number, number], f.dist, FOV, aspect)!;
+        expect(Math.max(-e.x0, e.x1, -e.y0, e.y1)).toBeLessThanOrEqual(0.88 + 1e-6);
+        expect(Math.max(-e.x0, e.x1, -e.y0, e.y1)).toBeGreaterThan(0.88 - 1e-6); // and it is tight: the extreme point sits exactly at `fill`
+      }
+    }
+  });
+
+  it('centring moves the look-at point so the silhouette is balanced, which also needs less distance than an off-centre fit', () => {
+    const plain = fitPoints(cloud, HOME, [0, 0, 0], FOV, 1.6, 0.88, false);
+    const centred = fitPoints(cloud, HOME, [0, 0, 0], FOV, 1.6, 0.88, true);
+    const e = projectExtent(cloud, HOME, centred.target as [number, number, number], centred.dist, FOV, 1.6)!;
+    expect(Math.abs(e.x0 + e.x1) / 2).toBeLessThan(0.01);
+    expect(Math.abs(e.y0 + e.y1) / 2).toBeLessThan(0.01);
+    expect(centred.dist).toBeLessThanOrEqual(plain.dist + 1e-9);
+  });
+
+  it('a tighter canvas needs a larger distance; the fit of a wide canvas does not depend on its width', () => {
+    const d = (a: number) => fitPoints(cloud, HOME, [0, 0.2, 0], FOV, a, 0.88, true).dist;
+    expect(d(0.4)).toBeGreaterThan(d(1));
+    expect(d(1)).toBeGreaterThan(d(2) - 1e-9);
+    expect(d(3)).toBeCloseTo(d(2.5), 1);
+  });
+
+  it('supportPoints keeps the extreme points in far fewer points, and fits the same as the whole cloud', () => {
+    const sp = supportPoints(cloud);
+    expect(sp.length / 3).toBeLessThanOrEqual(192);
+    expect(sp.length).toBeGreaterThan(30 * 3);
+    for (const aspect of [1.6, 0.5]) {
+      const all = fitPoints(cloud, HOME, [0, 0.2, 0], FOV, aspect, 0.88, true).dist;
+      const some = fitPoints(sp, HOME, [0, 0.2, 0], FOV, aspect, 0.88, true).dist;
+      expect(Math.abs(some - all) / all).toBeLessThan(0.02);
+    }
+    expect(supportPoints([]).length).toBe(0);
+  });
+
+  it('cameraBasis is orthonormal, including looking straight down', () => {
+    for (const dir of [HOME, [0, 1, 0], [0, -1, 0], [1, 0, 0]] as [number, number, number][]) {
+      const { right, up, back } = cameraBasis(dir);
+      const dot = (a: readonly number[], b: readonly number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+      expect(dot(right, up)).toBeCloseTo(0, 9); expect(dot(right, back)).toBeCloseTo(0, 9); expect(dot(up, back)).toBeCloseTo(0, 9);
+      expect(dot(up, up)).toBeCloseTo(1, 9);
+    }
+  });
+
+  it('clampFill defaults and bounds the share', () => {
+    expect(clampFill(undefined)).toBe(FRAME_FILL);
+    expect(clampFill(NaN)).toBe(FRAME_FILL);
+    expect(clampFill(0.1)).toBe(0.5);
+    expect(clampFill(2)).toBe(0.98);
+    expect(clampFill(0.8)).toBe(0.8);
   });
 });

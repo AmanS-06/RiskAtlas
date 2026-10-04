@@ -218,7 +218,10 @@ select {
 /* Wide screens: heart and compact results on the left, tabs on the right. The left column is sticky, so the heart and
  * every probability stay in view while the form on the right scrolls with the page. Its height is what is left of the screen
  * below the banner and header (both measured at run time into --banner-h and --header-h), so at scroll position 0 the whole
- * column fits the viewport. If a very short window cannot fit it, the column scrolls inside itself instead of being cut off. */
+ * column fits the viewport. If a very short window cannot fit it, the column scrolls inside itself instead of being cut off.
+ * The results card takes the height its content needs (never less than --results-min, so the 3D view does not jump when the first
+ * prediction arrives) and the 3D view takes everything that is left: viewer height = column height - card - viewer bar. The viewer re-fits
+ * its camera whenever that changes (HeartViewer.resize), so a taller or shorter stage never crops or shrinks the heart. */
 @media (min-width: 1024px) {
   .workspace {
     grid-template-columns: minmax(440px, 11fr) minmax(0, 12fr);
@@ -228,23 +231,51 @@ select {
 }
 @media (min-width: 1024px) and (min-height: 600px) {
   .stage {
+    --results-min: 280px; /* about the card's height with a full prediction; the card only grows beyond it (notes opened) */
+    --viewer-min: 200px; /* below this the column scrolls inside itself instead of squeezing the heart further */
     position: sticky;
     top: calc(var(--banner-h, 0px) + 8px);
     height: calc(100dvh - var(--banner-h, 0px) - var(--header-h, 0px) - 12px);
     overflow-y: auto;
     padding: 6px; /* room for the 3 px focus ring, which the scroll container would otherwise clip */
     margin: -4px;
-    gap: 10px;
+    gap: 8px;
   }
-  /* The viewer height is computed from the screen, not left to flex: if it followed the results card, it would resize every time
-   * a prediction arrives or a note is opened, and the 3D camera (framed once for the size it was loaded at) would crop the heart.
-   * --results-reserve is the height kept for the results card (overall, three vessels, bands, notes line). */
-  .stage {
-    --results-reserve: 474px;
-    --viewer-bar: 42px;
+  .stage > .stage-viewer {
+    flex: 1 1 0;
+    min-height: calc(var(--viewer-min) + var(--viewer-bar, 40px));
+    display: flex;
+    flex-direction: column;
   }
-  .stage-viewer .viewer {
-    height: clamp(210px, calc(100dvh - var(--banner-h, 0px) - var(--header-h, 0px) - var(--results-reserve) - var(--viewer-bar) - 28px), 720px);
+  .stage > .results {
+    min-height: var(--results-min);
+  }
+  .stage-viewer .viewer-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .workspace .stage-viewer .viewer {
+    flex: 1 1 0;
+    height: auto;
+    min-height: 0;
+  }
+
+  /* Enlarged: the form column steps aside and the 3D view takes the whole width, the results beside it (Escape or the Shrink button goes back). */
+  .workspace.is-enlarged {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .is-enlarged .workbench {
+    display: none;
+  }
+  .is-enlarged .stage {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 27rem);
+    grid-template-rows: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .is-enlarged .stage > .results {
+    overflow-y: auto;
+    min-height: 0;
   }
 }
 @media (min-width: 1500px) {
@@ -358,7 +389,11 @@ select {
 }
 .viewer {
   position: relative;
-  height: clamp(240px, 40vh, 420px);
+  /* Stacked layout (phones, tablets, short windows): over half the screen height, so the heart is the first thing seen. svh = the smallest
+   * viewport (browser bars shown), which does not change while scrolling; vh is the fallback for older browsers. Wide screens override this
+   * with the flex rule above. */
+  height: clamp(300px, 56vh, 720px);
+  height: clamp(300px, 56svh, 720px);
   background: var(--viewer-bg);
   color: var(--viewer-text);
   touch-action: pan-y;
@@ -373,7 +408,8 @@ select {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 6px 12px;
+  padding: 4px 12px;
+  min-height: var(--viewer-bar, 40px);
   border-top: 1px solid var(--border);
   flex-wrap: wrap;
 }
@@ -388,6 +424,16 @@ select {
 }
 .viewer-note {
   padding: 8px 12px;
+}
+.viewer-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+/* Enlarged on a phone, tablet or short window: the stacked flow stays and the 3D view simply gets most of the screen. */
+.is-enlarged .viewer {
+  height: clamp(360px, 82vh, 1000px);
+  height: clamp(360px, 82svh, 1000px);
 }
 
 /* ---- tabs ---- */

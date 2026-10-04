@@ -56,7 +56,7 @@ Integration notes:
   `lowPower: heuristic() ? true : undefined`.
 - The viewer replaces the container's `role` and `aria-label` while it is alive and restores the previous values on
   `dispose()`. Put your own description in a visible heading or `aria-describedby`, not in the container's label.
-- It observes the container itself; calling `resize()` from your own `ResizeObserver` is unnecessary (harmless).
+- It observes the container itself; calling `resize()` from your own `ResizeObserver` is unnecessary (harmless). On every resize the camera is re-framed for the new shape (section 3b), so the container may change size freely (a taller stage, an "enlarge" mode, a rotated phone).
 - `getStatus().usingFallback` is `'none'`, `'lite'` or `'procedural'`; show it if you want, it is not an error state.
 
 Run the harness: `cd web/viewer-demo && npm ci && npm run dev` (http://127.0.0.1:5174). Query switches for
@@ -70,7 +70,7 @@ specified, plus `OverallState`, `ViewerStatus`, `FallbackLevel`, `AnchorSpec`, `
 
 | Member | Behaviour |
 |---|---|
-| `new HeartViewer({container, modelUrl, liteModelUrl?, lowPower?, reducedMotion?, bodyStyle?, vesselBoost?, labels?, showHidden?})` | The last four are optional appearance options, section 3a (defaults are the recommended look; passing none changes nothing about the contract). Creates the canvas inside `container`, sets `role="application"`, an `aria-label`, `tabindex=0` (if none) and `position:relative` (if static), and an aria-live region. `lowPower` default: automatic, true on software GL. `reducedMotion` default: the OS `prefers-reduced-motion` setting, read once. |
+| `new HeartViewer({container, modelUrl, liteModelUrl?, lowPower?, reducedMotion?, bodyStyle?, vesselBoost?, labels?, showHidden?, fill?})` | The last five are optional appearance options, section 3a (defaults are the recommended look; passing none changes nothing about the contract). Creates the canvas inside `container`, sets `role="application"`, an `aria-label`, `tabindex=0` (if none) and `position:relative` (if static), and an aria-live region. `lowPower` default: automatic, true on software GL. `reducedMotion` default: the OS `prefers-reduced-motion` setting, read once. |
 | `load(): Promise<void>` | Standard GLB, then lite, then the built-in procedural heart (order reversed when `lowPower`, see 6). A GLB without mesh nodes named `LAD`, `LCX`, `RCA` is rejected with a `console.error` naming the missing nodes and the next fallback is tried. 20 s timeout per file. Never rejects. Safe to call twice. |
 | `setVessels(states)` | Merges: vessels not mentioned are unchanged, an explicit `undefined` value clears one to neutral grey. Cheap: writes material colours, no geometry or material is re-created. Colours must be `#rgb` or `#rrggbb`, otherwise that entry is ignored with a warning. Works before `load()` (applied on load). |
 | `setOverall(state \| null)` | Heart-level glow, see 4. `null` removes it. |
@@ -78,14 +78,15 @@ specified, plus `OverallState`, `ViewerStatus`, `FallbackLevel`, `AnchorSpec`, `
 | `onSelect(cb)` | Returns the unsubscribe function. A throwing callback does not affect the others. |
 | `setAnchors(specs: {key, node}[])`, `onAnchors(cb)` | Pins callouts to mesh nodes, see 8. `cb` gets `{key, node, x, y, visible}[]`, CSS px from the container's top-left, whenever any position changes. |
 | `resetView()` | Animates (or jumps, when reduced motion) to the home pose. Does not change the selection. |
-| `resize()` | Re-measures the container and redraws synchronously. Also automatic through a `ResizeObserver`. |
+| `resize()` | Re-measures the container, re-frames the camera for its new shape (section 3b) and redraws synchronously. Also automatic through a `ResizeObserver`. |
 | `getStatus()` | `{loaded, usingFallback: 'none'\|'lite'\|'procedural', webgl, triangles, fps?}`. `usingFallback:'lite'` is also reported when lite was chosen by `lowPower`, not only after a failure. `fps` is only present while frames are being drawn continuously (orbiting, tween). |
+| `getFraming()` | Diagnostics (added with the framing work, optional to use): `{width, height, distance, autoDistance, direction, fitted, silhouette}`. `silhouette` is the projected extent of the whole model (aorta and arteries included) in CSS px from the canvas's top-left, `fitted` is true while the camera is at the auto-fit distance. The tests use it; apps do not need it. |
 | `dispose()` | Cancels frames and timers, removes every listener and observer, disposes geometries, materials and the renderer, forces the GL context loss, removes everything it added to `container` and restores the attributes it set. Idempotent. All methods are no-ops afterwards. |
 
 Deviations from the requested contract: none. Additions: `OverallState` and the anchor types, `onAnchors`
 (the contract left `setAnchors` open), the semantics stated above for `setVessels`, `lowPower`, `onSelect`, and the
-four optional appearance options (`bodyStyle`, `vesselBoost`, `labels`, `showHidden`, section 3a) with the types
-`BodyStyle` and `LabelMode`. Every method and every existing option behaves as before.
+five optional options (`bodyStyle`, `vesselBoost`, `labels`, `showHidden`, section 3a; `fill`, section 3b) with the types
+`BodyStyle`, `LabelMode` and `ViewerFraming`, and the `getFraming()` diagnostic. Every method and every existing option behaves as before.
 
 ## 3. Colour and uncertainty
 
@@ -174,6 +175,48 @@ palette's pairwise collapse under red-green deficiency (moderate-low 6 to 10, hi
 canvas; `docs/viewer_findings.md` item 3 has the swatch-level numbers) is a property of the palette that the app
 passes in, not of the viewer: the labels' numbers and the app's colour-blind-safe palette are the mitigations, and the
 viewer deliberately does not recolour what it is given.
+
+## 3b. Camera framing (size of the heart in its box)
+
+The viewer fits the camera to the heart, not to a bounding sphere. A bounding sphere around a heart with its aorta is 30 to 40
+percent looser than the silhouette, and the old fit (`fitDistance(radius * 0.8)`) was also computed once, for the size the
+container had at load. Now:
+
+- **What is fitted.** About 190 extreme points of the whole model (`supportPoints`: the vertex furthest along evenly spread
+  directions, a stand-in for the convex hull; aorta, arteries and chambers all included) are projected through the real perspective
+  camera. `fitPoints` returns the smallest distance at which every one lies within `fill` of the half-extent of the canvas, in
+  both directions, and for the home view also moves the look-at point so the silhouette is centred (the aorta makes it
+  asymmetric). Exact, not iterative in distance; a few cheap passes only for the centring.
+- **`fill`** (option, default `0.88`, clamped to 0.5 to 0.98): the share of the **limiting** canvas dimension the silhouette
+  fills at the home view. The heart is tall and narrow, so in a wide box the height limits and the width is about 40 to 55
+  percent used; in a phone-shaped box the width limits. The remaining 6 percent per side keeps the label chips (which are
+  clamped into the canvas by `chooseLabelSpot` / `separateChips`) and the halo inside. Measured on the rendered pixels in the
+  browser tests: 87.8 to 88.2 percent for every box from 286x318 to 1200x400.
+- **When it is re-fitted.** (1) At load and on `resetView()` (the tween ends at the fit for the current box). (2) On every resize:
+  at the home view the pose is re-fitted from scratch; if the user orbited or panned but did **not zoom**, the camera is still at
+  the auto-fit distance (within 2 percent), so the **orbit angle is kept and only the distance is re-fitted** for it; if the user
+  deliberately zoomed or a vessel is focused, the zoom is kept relative to the canvas instead (distance scaled by the ratio of the
+  bounding-sphere fits of the two shapes, so the same share of the heart stays in frame); a running camera tween is retargeted.
+  Rule of thumb: "fitted" means "distance equals the last auto-fit distance"; `getFraming().fitted` reports it.
+- **Zoom limits** follow the fit: closest = min(0.8, 0.4 x fit), farthest = max(6 x radius, 2.5 x fit), so you can always get about
+  2.5 times closer than the fit and at least 2.5 times further out, whatever the box shape. Tested: 50 zoom-out and 100 zoom-in
+  key presses reach at least 2x out and 0.5x in.
+- **Render on demand is unchanged**: a resize draws once (synchronously) and then the viewer is idle again (tested: 0 frames and
+  0 rAF requests in 1.5 s after a resize).
+
+Numbers (headless Chromium, software GL, demo harness, opaque pixels of the canvas; limiting dimension = max of width and height share):
+
+| Canvas (CSS px) | before | after |
+|---|---|---|
+| 813 x 405 (old sticky column at 1920x1030) | 82.9 % | 88.1 % |
+| 660 x 257 (old column at 1440x900) | 83.1 % | 88.2 % |
+| 400 x 500 (tall) | 75.4 % | 88.4 % |
+| 300 x 600 (phone shaped) | 76.8 % | 87.9 % |
+| 500 x 500 (square) | 82.9 % | 88.0 % |
+
+The old fit was already tight in the height of a wide box; what looked like "60 percent" is the heart's width in a wide box (about 40 to
+55 percent after the change as well, because the heart is narrow) and the small box itself. The gains are the taller box (see
+`docs/web.md`, Layout), the 88 percent fill, and the correct fit on tall and phone-shaped boxes.
 
 ## 4. Heart-level glow (`setOverall`)
 
@@ -356,10 +399,13 @@ Results of the final run on this branch (Node 22.22, Chromium 141, headless, Swi
 | `npm run validate` (web/scripts) | glTF validator 0 errors, 0 warnings on both models; all checks passed |
 | `npm run bands -- --check` | generated config is up to date |
 | `npm run typecheck` | no errors (strict, noUnusedLocals) |
-| `npm test` | 2 files, **65 tests passed** (pure logic: colour and desaturation maths, glow rule, selection state machine, emitter, key map, load fallback order and status, render budget, fps meter, tween and pulse, picking geometry, announcement text; plus manifest / `VesselId` / `.glb` consistency) |
-| `npm run test:e2e` | 2 files, **51 tests passed** in 176 s |
+| `npm test` | 2 files, **72 tests passed** (pure logic: colour and desaturation maths, glow rule, selection state machine, emitter, key map, load fallback order and status, render budget, fps meter, tween and pulse, picking geometry, announcement text, the framing maths (exact fill for wide to phone-shaped canvases, centring, nothing leaves the canvas at any orbit angle, support points); plus manifest / `VesselId` / `.glb` consistency) |
+| `npm run test:e2e` | 2 files, **56 tests passed** in 207 s |
 
-The 35 browser tests, by group: environment and loading (7: WebGL2 context on SwiftShader and antialiasing off, standard
+The framing work (section 3b) adds a `camera framing` group of 5 browser tests (`e2e/viewer.e2e.test.ts`): fill of 80 to 95 percent of
+the limiting dimension measured on the rendered pixels for 8 box shapes (and the camera maths agrees with the pixels), chips inside the canvas
+for the same shapes with and without a selection, re-fit on resize / orbit angle kept / `resetView()` / zoom kept / zoom range, 0 idle frames
+after a resize, and the `fill` option with clamping. The 35 original browser tests, by group: environment and loading (7: WebGL2 context on SwiftShader and antialiasing off, standard
 GLB with 23,283 triangles, lite by `lowPower` and by auto-detection, fallback to lite, fallback to the procedural heart
 and using it, GLB without the manifest nodes rejected with a clear error); colour coding (4: `setVessels` recolours the
 rendered arteries for all three bands, verified by reading pixels back (about 6,400 red, 6,600 green, 6,200 amber
@@ -408,8 +454,12 @@ Screenshots (`web/viewer-demo/screenshots/`, regenerated by the browser tests, v
 `combo_hml_light` (LAD high, LCX moderate, RCA low), `combo_lhm_light` / `combo_lhm_dark`, `combo_mlh_light`,
 `combo_hml_dark`, `selected_LAD_hml`, `selected_LCX_hml`, `selected_RCA_hml`, `selected_LCX_dark`, `back_hml` (hidden
 arteries as ghosts), `safe_palette_hml`, `lite_hml`, `phone_hml`, and the app itself in `app_desktop_light`,
-`app_desktop_dark`, `app_phone_light`. `before/` holds the old front view, the old selected LAD (standard and lite) and the
-old app screenshot for comparison. Best for the video: `selected_LCX_hml` (the selected artery is unmistakable, its label
+`app_desktop_dark`, `app_phone_light` (older, kept for comparison). The size pass adds the app at the sizes that matter, real backend, with the
+larger viewer and the 88 percent fill: `app_1920x1030_light`, `app_1920x890_light`, `app_1920x1080_light`, `app_1440x900_light`,
+`app_1366x768_light` / `_dark`, `app_tablet_768x1024_light`, `app_phone_390x844_light`, `app_phone_390x844_dark_selected_LCX`,
+`app_1920x1030_dark_selected_LAD`, `app_1920x1030_moderate_light`, `app_1920x1030_low_dark`, and the Enlarge mode
+`app_1920x1030_enlarged_light`, `app_1920x1030_enlarged_dark_selected_RCA`. `before/` holds the old front view, the old selected LAD
+(standard and lite), the old app screenshot and `before_app_*` (the same sizes before the size pass) for comparison. Best for the video: `selected_LCX_hml` (the selected artery is unmistakable, its label
 and the other two stay readable), `combo_lhm_dark` and `combo_hml_light` (three bands at a glance in both themes).
 The back view still hides the LCX behind the left atrium; select it to bring it to the front.
 
@@ -452,6 +502,7 @@ The back view still hides the LCX behind the left atrium; select it to bring it 
 
 ## 11. Known limits
 
+- **The fit follows the silhouette at the current orbit angle.** After the user orbits and the box then changes shape, the distance is re-fitted for that angle but the pivot stays where the user left it, so the silhouette can sit a little off centre (the home view is centred exactly). The heart is narrow: in a wide box it uses 40 to 55 percent of the width at an 88 percent height fill.
 - **Per vessel only.** No lesion location inside a vessel; all branches of an artery share one colour.
 - **Atlas anatomy, not the patient's.** A normal adult atlas heart (right-dominant by appearance). Coronary course,
   branch completeness and dominance were judged from renders, not by a clinician. The arteries are thin non-watertight

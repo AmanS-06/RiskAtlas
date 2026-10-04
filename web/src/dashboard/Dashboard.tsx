@@ -23,6 +23,8 @@ const TABS = [
 export function Dashboard() {
   const d = useDashboard();
   const [tab, setTab] = useState('inputs');
+  const [enlarged, setEnlarged] = useState(false); // the 3D view takes most of the screen; kept in memory only
+  const toggleEnlarged = useCallback(() => setEnlarged((v) => !v), []);
   const { meta } = d;
 
   const applyChanges = useCallback(
@@ -97,10 +99,18 @@ export function Dashboard() {
         </main>
       )}
       {meta && (
-        <main className="workspace" id="main">
+        <main className={`workspace${enlarged ? ' is-enlarged' : ''}`} id="main">
           <div className="stage">
             <section aria-label="3D risk map" className="panel stage-viewer">
-              <ViewerCanvas vessels={viewerVessels} overall={viewerOverall} selectedMesh={selectedMesh} onSelectMesh={onSelectMesh} meshNames={meshNames} />
+              <ViewerCanvas
+                vessels={viewerVessels}
+                overall={viewerOverall}
+                selectedMesh={selectedMesh}
+                onSelectMesh={onSelectMesh}
+                meshNames={meshNames}
+                enlarged={enlarged}
+                onToggleEnlarged={toggleEnlarged}
+              />
             </section>
             <ResultsPanel
               meta={meta}

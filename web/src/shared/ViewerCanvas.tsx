@@ -16,11 +16,14 @@ interface Props {
   selectedMesh: string | null;
   onSelectMesh: (mesh: string | null) => void;
   meshNames: string[];
+  /** Enlarged state, owned by the page (it changes the page layout: the form column steps aside). Omit both props for no Enlarge button. */
+  enlarged?: boolean;
+  onToggleEnlarged?: () => void;
 }
 
 const BASE = import.meta.env.BASE_URL;
 
-export function ViewerCanvas({ vessels, overall, selectedMesh, onSelectMesh, meshNames }: Props) {
+export function ViewerCanvas({ vessels, overall, selectedMesh, onSelectMesh, meshNames, enlarged = false, onToggleEnlarged }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const viewer = useRef<HeartViewer | null>(null);
   const onSelectRef = useRef(onSelectMesh);
@@ -29,6 +32,11 @@ export function ViewerCanvas({ vessels, overall, selectedMesh, onSelectMesh, mes
   });
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
+  const enlargeButton = useRef<HTMLButtonElement>(null);
+  const toggleRef = useRef(onToggleEnlarged);
+  useEffect(() => {
+    toggleRef.current = onToggleEnlarged;
+  });
   const [status, setStatus] = useState<ViewerStatus | null>(null);
 
   useEffect(() => {
@@ -48,6 +56,7 @@ export function ViewerCanvas({ vessels, overall, selectedMesh, onSelectMesh, mes
           reducedMotion: prefersReducedMotion(),
         });
         viewer.current = v;
+        if (import.meta.env.DEV) (window as unknown as { __heartViewer?: HeartViewer }).__heartViewer = v; // handle for the browser tests (dev server only, absent from the production build)
         const off = v.onSelect((id) => onSelectRef.current(id));
         const ro = new ResizeObserver(() => v.resize());
         ro.observe(el);
@@ -56,6 +65,7 @@ export function ViewerCanvas({ vessels, overall, selectedMesh, onSelectMesh, mes
           off();
           v.dispose();
           viewer.current = null;
+          if (import.meta.env.DEV) delete (window as unknown as { __heartViewer?: HeartViewer }).__heartViewer;
         };
         await v.load();
         if (!alive) return;
@@ -88,6 +98,28 @@ export function ViewerCanvas({ vessels, overall, selectedMesh, onSelectMesh, mes
     if (ready) viewer.current?.select((selectedMesh as VesselId | null) ?? null);
   }, [ready, selectedMesh]);
 
+  // The page re-lays out when the view is enlarged or shrunk: the viewer re-measures and re-fits its camera once the new size is in place
+  // (its own ResizeObserver does the same; this also covers browsers and tests without one). On a phone the enlarged view is scrolled into reach.
+  const wasEnlarged = useRef(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => viewer.current?.resize());
+    if (enlarged && !wasEnlarged.current) host.current?.scrollIntoView?.({ block: 'nearest' });
+    wasEnlarged.current = enlarged;
+    return () => cancelAnimationFrame(id);
+  }, [enlarged]);
+
+  // Escape leaves the enlarged view, from anywhere on the page (when the 3D view itself has focus its own Escape, which clears the selection, runs as well).
+  useEffect(() => {
+    if (!enlarged) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      toggleRef.current?.();
+      enlargeButton.current?.focus({ preventScroll: true });
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [enlarged]);
+
   return (
     <div className="viewer-wrap">
       <div
@@ -104,9 +136,24 @@ export function ViewerCanvas({ vessels, overall, selectedMesh, onSelectMesh, mes
         </p>
       )}
       <div className="viewer-bar">
-        <button type="button" className="tool-button" onClick={() => viewer.current?.resetView()} disabled={!ready}>
-          Reset view
-        </button>
+        <div className="viewer-actions">
+          <button type="button" className="tool-button" onClick={() => viewer.current?.resetView()} disabled={!ready}>
+            Reset view
+          </button>
+          {onToggleEnlarged && (
+            <button
+              type="button"
+              ref={enlargeButton}
+              className="tool-button"
+              aria-pressed={enlarged}
+              onClick={onToggleEnlarged}
+              data-testid="viewer-enlarge"
+              title={enlarged ? 'Back to the normal layout (Escape)' : 'Give the 3D view most of the screen (Escape to go back)'}
+            >
+              {enlarged ? 'Shrink' : 'Enlarge'}
+            </button>
+          )}
+        </div>
         <span className="viewer-status" data-testid="viewer-status">
           {status
             ? `${status.usingFallback === 'none' ? 'Full model' : status.usingFallback === 'lite' ? 'Lite model' : 'Schematic fallback'} · ${status.webgl ? 'WebGL' : 'no WebGL'}`
