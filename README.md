@@ -275,6 +275,10 @@ Each member describes their own contribution in [docs/CONTRIBUTORS.md](docs/CONT
 Parts of the code, tests and documentation were produced with AI assistance (Claude Code) and reviewed by
 the team. <!-- TODO(team): confirm this wording against the hackathon rules; the rules page was not accessible to the author. -->
 
+## Licence
+
+The RiskAtlas source code and documentation are released under the [MIT licence](LICENSE). Third-party material keeps its own licence (the 3D heart model is CC BY-SA 4.0, the datasets are CC BY 4.0); see below.
+
 ## Data and asset licences
 
 Full list with sources: [ASSETS_AND_LICENSES.md](ASSETS_AND_LICENSES.md). Every dataset and 3D mesh used
