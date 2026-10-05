@@ -1,0 +1,26 @@
+# Render Blueprint: one free web service built from the Dockerfile (docs/DEPLOY.md, section "Render").
+# New > Blueprint > pick this repo > Apply. Render builds the image, starts it and waits for the health check.
+#
+# Not validated against Render here (no access to render.yaml's schema checker from the build sandbox). If the
+# dashboard rejects a key, create a Web Service by hand: Language = Docker, Instance type = Free, Health Check
+# Path = /api/health; nothing else is needed.
+#
+# Free-instance limits to check on Render's pricing page before relying on this for a demo: the RAM limit
+# (the app measured about 430 MiB idle and 445 MiB during a prediction, see docs/DEPLOY.md), the CPU share,
+# the spin-down after inactivity and the build minutes.
+services:
+  - type: web
+    name: riskatlas
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    # The port opens only after the four models have loaded (about 15 to 20 s after the container starts), then 200.
+    # 503 means the models failed to load.
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # Render sets PORT itself and the image's start command honours it; nothing to configure.
+      # One throw-away prediction at start-up so the first visitor does not wait about 10 s extra.
+      - key: API_WARMUP
+        value: "1"

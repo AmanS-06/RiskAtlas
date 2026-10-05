@@ -1,0 +1,56 @@
+# Keeps the Docker build context small. The Dockerfile copies only the folders it names; this stops the rest
+# (virtual environments, node_modules, the raw dataset, figures, screenshots) being uploaded to the daemon first.
+
+# version control and editors
+.git
+.gitignore
+.gitattributes
+.github
+.vscode
+.idea
+
+# Python environments and caches
+.venv
+venv
+env
+**/__pycache__
+**/*.py[cod]
+**/*.egg-info
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# environment files (never baked into an image)
+.env
+.env.*
+web/.env
+web/.env.*
+**/*.local
+
+# node
+**/node_modules
+web/dist
+web/tests
+web/viewer-demo
+web/scripts
+web/.vite
+
+# data (the raw dataset is downloaded, not committed) and model staging
+data
+models/staging
+models/previous
+models/*.tmp
+
+# training outputs and everything else the API does not read; reports/example_prediction.json is kept
+reports/*
+!reports/example_prediction.json
+
+docs
+tests
+experiments
+notebooks
+cv
+slm
+common
+scripts
+*.pdf
