@@ -17,11 +17,14 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "node tests/e2e/run.mjs",
     "sync:mock": "node scripts/sync-mock.mjs",
+    "sync:reliability": "node scripts/sync-reliability.mjs",
     "palette": "node scripts/palette-report.mjs"
   },
   "dependencies": {
+    "@fontsource-variable/inter-tight": "^5.3.0",
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@fontsource/instrument-serif": "^5.3.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "three": "0.186.1"

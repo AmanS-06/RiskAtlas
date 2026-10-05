@@ -1,5 +1,6 @@
 /* theme.css - every colour, font and spacing token of the web app, and nothing else.
  * Components and layout CSS only reference these variables. Restyle here.
+ * The app is dark first (a clinician reading a 3D scene in a dim room); the light theme is a clean clinical alternative.
  * Risk-band colours do NOT live here: they come from config/risk_bands.yaml via /meta. Only the colour-blind-safe
  * alternative ramp (--safe-band-*) is defined below, because the config palette is not distinguishable enough
  * for protanopia (docs/web_findings.md). Pairs that carry text are checked for WCAG AA by src/shared/theme.test.ts. */
@@ -8,12 +9,12 @@
   color-scheme: light;
 
   /* surfaces and text */
-  --bg: #f3f6fa;
+  --bg: #f1f5fa;
   --surface: #ffffff;
-  --surface-2: #eaeff5;
+  --surface-2: #e8eef5;
   --border: #c5d0dc;
   --border-strong: #708196;
-  --text: #121c28;
+  --text: #0f1a26;
   --text-muted: #435263;
 
   /* interactive */
@@ -48,12 +49,14 @@
 
   /* risk gauge */
   --gauge-track: #dde5ee;
-  --gauge-needle: #121c28;
-  --interval: #121c28;
+  --gauge-needle: #0f1a26;
+  --interval: #0f1a26;
 
-  /* 3D stage */
-  --viewer-bg: #e6edf5;
-  --viewer-text: #121c28;
+  /* 3D stage and its HUD panels */
+  --viewer-bg: #e3ebf4;
+  --viewer-text: #0f1a26;
+  --hud-bg: rgb(255 255 255 / 92%);
+  --hud-line: #0a58a8;
 
   /* colour-blind-safe alternative ramp, lowest risk first: light blue, amber, crimson (lightness falls as risk rises) */
   --safe-band-0: #b4e4fa;
@@ -61,8 +64,9 @@
   --safe-band-2: #8e0f35;
 
   /* type and shape */
-  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-sans: 'Inter Tight Variable', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --text-sm: 0.8125rem;
   --text-base: 0.9375rem;
   --text-lg: 1.125rem;
@@ -79,75 +83,79 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
-    --bg: #0d131a;
-    --surface: #151d27;
-    --surface-2: #1d2733;
-    --border: #2f3d4d;
-    --border-strong: #6a7d91;
-    --text: #e9eff6;
-    --text-muted: #a6b4c4;
-    --accent: #78b8ff;
-    --accent-contrast: #061423;
-    --accent-soft: #1b3550;
-    --focus: #c4a8ff;
+    --bg: #060d16;
+    --surface: #0c1623;
+    --surface-2: #121f30;
+    --border: #1f3147;
+    --border-strong: #6a86a3;
+    --text: #e8f1fa;
+    --text-muted: #9db3c8;
+    --accent: #4fd4ff;
+    --accent-contrast: #04141f;
+    --accent-soft: #0f3347;
+    --focus: #ffd166;
     --danger: #ff8a8a;
     --danger-soft: #3b1a1c;
     --ok: #6fd69a;
-    --info-soft: #17304a;
-    --disclaimer-bg: #3b2d08;
+    --info-soft: #11304a;
+    --disclaimer-bg: #2f2406;
     --disclaimer-text: #ffe8ae;
     --disclaimer-border: #d9a228;
     --mock-bg: #cdb6ff;
     --mock-text: #1d0c3c;
     --shap-up: #ff9a5c;
     --shap-down: #8fb4ff;
-    --bar-track: #263443;
+    --bar-track: #1b2b3f;
     --status-low: #8fb4ff;
     --status-normal: #6fd69a;
     --status-high: #ff9a5c;
-    --status-missing: #a6b4c4;
-    --gauge-track: #263443;
-    --gauge-needle: #e9eff6;
-    --interval: #e9eff6;
-    --viewer-bg: #0a1018;
-    --viewer-text: #e9eff6;
-    --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 2px 8px rgb(0 0 0 / 30%);
+    --status-missing: #9db3c8;
+    --gauge-track: #1b2b3f;
+    --gauge-needle: #e8f1fa;
+    --interval: #e8f1fa;
+    --viewer-bg: #050b14;
+    --viewer-text: #e8f1fa;
+    --hud-bg: rgb(7 16 27 / 86%);
+    --hud-line: #4fd4ff;
+    --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 35%);
   }
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #0d131a;
-  --surface: #151d27;
-  --surface-2: #1d2733;
-  --border: #2f3d4d;
-  --border-strong: #6a7d91;
-  --text: #e9eff6;
-  --text-muted: #a6b4c4;
-  --accent: #78b8ff;
-  --accent-contrast: #061423;
-  --accent-soft: #1b3550;
-  --focus: #c4a8ff;
+  --bg: #060d16;
+  --surface: #0c1623;
+  --surface-2: #121f30;
+  --border: #1f3147;
+  --border-strong: #6a86a3;
+  --text: #e8f1fa;
+  --text-muted: #9db3c8;
+  --accent: #4fd4ff;
+  --accent-contrast: #04141f;
+  --accent-soft: #0f3347;
+  --focus: #ffd166;
   --danger: #ff8a8a;
   --danger-soft: #3b1a1c;
   --ok: #6fd69a;
-  --info-soft: #17304a;
-  --disclaimer-bg: #3b2d08;
+  --info-soft: #11304a;
+  --disclaimer-bg: #2f2406;
   --disclaimer-text: #ffe8ae;
   --disclaimer-border: #d9a228;
   --mock-bg: #cdb6ff;
   --mock-text: #1d0c3c;
   --shap-up: #ff9a5c;
   --shap-down: #8fb4ff;
-  --bar-track: #263443;
+  --bar-track: #1b2b3f;
   --status-low: #8fb4ff;
   --status-normal: #6fd69a;
   --status-high: #ff9a5c;
-  --status-missing: #a6b4c4;
-  --gauge-track: #263443;
-  --gauge-needle: #e9eff6;
-  --interval: #e9eff6;
-  --viewer-bg: #0a1018;
-  --viewer-text: #e9eff6;
-  --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 2px 8px rgb(0 0 0 / 30%);
+  --status-missing: #9db3c8;
+  --gauge-track: #1b2b3f;
+  --gauge-needle: #e8f1fa;
+  --interval: #e8f1fa;
+  --viewer-bg: #050b14;
+  --viewer-text: #e8f1fa;
+  --hud-bg: rgb(7 16 27 / 86%);
+  --hud-line: #4fd4ff;
+  --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 35%);
 }

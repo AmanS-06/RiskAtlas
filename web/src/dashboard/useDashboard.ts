@@ -40,7 +40,7 @@ function initialPalette(): PaletteMode {
 
 function initialTheme(): ThemePref {
   const t = readPref('theme');
-  return t === 'light' || t === 'dark' ? t : 'system';
+  return t === 'light' || t === 'system' ? t : 'dark';
 }
 
 export function applyTheme(t: ThemePref): void {

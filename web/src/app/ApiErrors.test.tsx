@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Dashboard } from './Dashboard';
+import { Workspace } from './Workspace';
 
 beforeEach(() => {
   window.history.replaceState({}, '', '/');
@@ -18,7 +18,7 @@ describe('API failure states', () => {
       vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))),
     );
     const user = userEvent.setup();
-    render(<Dashboard />);
+    render(<Workspace />);
     const err = await screen.findByTestId('meta-error', undefined, opts);
     expect(err).toHaveTextContent('Cannot reach the model server');
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
@@ -32,7 +32,7 @@ describe('API failure states', () => {
       'fetch',
       vi.fn(async () => new Response(JSON.stringify({ error: { code: 'models_unavailable', message: 'Models are not loaded' } }), { status: 503 })),
     );
-    render(<Dashboard />);
+    render(<Workspace />);
     const err = await screen.findByTestId('meta-error', undefined, opts);
     expect(err).toHaveTextContent('Models are not available');
     expect(err).toHaveTextContent('Models are not loaded');
@@ -57,7 +57,7 @@ describe('API failure states', () => {
       ),
     );
     const user = userEvent.setup();
-    render(<Dashboard />);
+    render(<Workspace />);
     await screen.findByTestId('patient-form', undefined, opts);
     await user.type(screen.getByTestId('field-age'), '60');
     await user.click(screen.getByTestId('predict-button'));
@@ -81,7 +81,7 @@ describe('API failure states', () => {
       ),
     );
     const user = userEvent.setup();
-    render(<Dashboard />);
+    render(<Workspace />);
     await screen.findByTestId('patient-form', undefined, opts);
     await user.type(screen.getByTestId('field-age'), '60');
     await user.click(screen.getByTestId('predict-button'));

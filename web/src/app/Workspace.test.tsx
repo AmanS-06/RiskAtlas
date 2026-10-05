@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Dashboard } from './Dashboard';
+import { Workspace } from './Workspace';
 import { DISCLAIMER, MOCK_LABEL } from '../shared/constants';
 import example from '../api/mock/example_prediction.json';
 
@@ -15,8 +15,13 @@ afterEach(() => vi.restoreAllMocks());
 const waitOpts = { timeout: 4000 };
 
 async function loaded() {
-  render(<Dashboard />);
+  render(<Workspace />);
   await screen.findByTestId('patient-form', undefined, waitOpts);
+}
+
+/** The patient form shows one feature group at a time. */
+async function openGroup(user: ReturnType<typeof userEvent.setup>, group: string) {
+  await user.click(screen.getByRole('tab', { name: new RegExp(`^${group}`, 'i') }));
 }
 
 describe('page chrome', () => {
@@ -29,7 +34,7 @@ describe('page chrome', () => {
   });
 
   it('publishes the banner and header heights as CSS variables for the sticky layout, and removes them on unmount', async () => {
-    const { unmount } = render(<Dashboard />);
+    const { unmount } = render(<Workspace />);
     await screen.findByTestId('patient-form', undefined, waitOpts);
     const root = document.documentElement.style;
     expect(root.getPropertyValue('--banner-h')).toMatch(/^\d+px$/);
@@ -52,40 +57,45 @@ describe('page chrome', () => {
   });
 });
 
-describe('enlarge toggle', () => {
-  it('Enlarge puts the workspace in the enlarged state (the 3D view takes the width), Shrink and Escape go back; the form stays mounted', async () => {
+describe('focus mode', () => {
+  it('Focus gives the 3D view the whole width, Show panels and Escape go back; the form stays mounted', async () => {
     const user = userEvent.setup();
     await loaded();
     const main = screen.getByRole('main');
     const btn = await screen.findByTestId('viewer-enlarge', undefined, waitOpts);
     expect(btn).toHaveAttribute('aria-pressed', 'false');
-    expect(main).not.toHaveClass('is-enlarged');
+    expect(main).not.toHaveClass('is-focus');
     await user.click(btn);
-    expect(main).toHaveClass('is-enlarged');
+    expect(main).toHaveClass('is-focus');
     expect(screen.getByTestId('viewer-enlarge')).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByTestId('patient-form')).toBeInTheDocument(); // hidden by CSS only: nothing typed is lost
     await user.keyboard('{Escape}');
-    expect(main).not.toHaveClass('is-enlarged');
+    expect(main).not.toHaveClass('is-focus');
     await user.click(screen.getByTestId('viewer-enlarge'));
     await user.click(screen.getByTestId('viewer-enlarge'));
-    expect(main).not.toHaveClass('is-enlarged');
+    expect(main).not.toHaveClass('is-focus');
   });
 });
 
 describe('input form is built from /meta', () => {
   it('groups, controls and units come from config', async () => {
     await loaded();
+    const user = userEvent.setup();
     const form = screen.getByTestId('patient-form');
-    expect(within(form).getByText('Demographics')).toBeInTheDocument();
-    expect(within(form).getByText('ECG')).toBeInTheDocument();
-    expect(within(form).getByRole('textbox', { name: /^Blood pressure/ })).toHaveAttribute('inputmode');
-    expect(within(form).getByTestId('field-bbb').tagName).toBe('SELECT');
+    expect(within(form).getByRole('tab', { name: /^Demographics/ })).toBeInTheDocument();
+    expect(within(form).getByRole('tab', { name: /^ECG/ })).toBeInTheDocument();
     expect(within(form).getByTestId('field-dm-yes')).toHaveAttribute('type', 'radio');
+    await openGroup(user, 'Vitals');
+    expect(within(form).getByRole('textbox', { name: /^Blood pressure/ })).toHaveAttribute('inputmode');
     expect(within(form).getAllByText(/Reference 90 to 120 mmHg/).length).toBeGreaterThan(0);
+    await openGroup(user, 'ECG');
+    expect(within(form).getByTestId('field-bbb').tagName).toBe('SELECT');
   });
 
   it('sliders exist only for modifiable numeric features', async () => {
+    const user = userEvent.setup();
     await loaded();
+    await openGroup(user, 'Vitals');
     expect(screen.getByTestId('slider-bp')).toBeInTheDocument();
     expect(screen.queryByTestId('slider-age')).toBeNull();
   });
@@ -93,6 +103,7 @@ describe('input form is built from /meta', () => {
   it('shows a validation error, marks the field invalid and pauses predictions', async () => {
     const user = userEvent.setup();
     await loaded();
+    await openGroup(user, 'Vitals');
     await user.type(screen.getByTestId('field-bp'), '9999');
     expect(screen.getByTestId('field-bp')).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByTestId('form-errors')).toHaveTextContent('Blood pressure');
@@ -251,26 +262,27 @@ describe('reset and palette', () => {
     await user.click(screen.getByTestId('reset-button'));
     expect(screen.getByTestId('empty-results')).toBeInTheDocument();
     expect(screen.getByTestId('entered-count')).toHaveTextContent('0 of 52');
+    await openGroup(user, 'Vitals');
     expect((screen.getByTestId('field-bp') as HTMLInputElement).value).toBe('');
   });
 
   it('palette toggle is a labelled switch and the choice is remembered', async () => {
     const user = userEvent.setup();
     await loaded();
-    const b = screen.getByRole('button', { name: /colour-blind safe palette/i });
+    const b = screen.getByRole('button', { name: /colour-blind palette/i });
     expect(b).toHaveAttribute('aria-pressed', 'false');
     await user.click(b);
     expect(b).toHaveAttribute('aria-pressed', 'true');
     expect(localStorage.getItem('riskatlas:palette')).toBe('safe');
   });
 
-  it('theme button cycles system, light, dark and sets data-theme', async () => {
+  it('starts dark, and the theme button cycles dark, light, system and sets data-theme', async () => {
     const user = userEvent.setup();
     await loaded();
-    const b = screen.getByRole('button', { name: /theme: system/i });
-    await user.click(b);
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    await user.click(screen.getByRole('button', { name: /theme: dark/i }));
     expect(document.documentElement.getAttribute('data-theme')).toBe('light');
     await user.click(screen.getByRole('button', { name: /theme: light/i }));
-    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    expect(document.documentElement.getAttribute('data-theme')).toBeNull();
   });
 });

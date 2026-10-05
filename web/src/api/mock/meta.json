@@ -326,7 +326,7 @@
    ],
    "group": "vitals",
    "mutable": true,
-   "anchor": null,
+   "anchor": "ascending_aorta",
    "map": null,
    "allowed": null,
    "stats": {
@@ -593,7 +593,7 @@
    "range": null,
    "group": "ecg",
    "mutable": false,
-   "anchor": null,
+   "anchor": "left_ventricle",
    "map": null,
    "allowed": [
     0,
@@ -614,7 +614,7 @@
    "range": null,
    "group": "ecg",
    "mutable": false,
-   "anchor": null,
+   "anchor": "left_ventricle",
    "map": null,
    "allowed": [
     0,
@@ -635,7 +635,7 @@
    "range": null,
    "group": "ecg",
    "mutable": false,
-   "anchor": null,
+   "anchor": "left_ventricle",
    "map": null,
    "allowed": [
     0,
@@ -656,7 +656,7 @@
    "range": null,
    "group": "ecg",
    "mutable": false,
-   "anchor": null,
+   "anchor": "left_ventricle",
    "map": null,
    "allowed": [
     0,
@@ -677,7 +677,7 @@
    "range": null,
    "group": "ecg",
    "mutable": false,
-   "anchor": null,
+   "anchor": "left_ventricle",
    "map": null,
    "allowed": [
     0,
@@ -1042,7 +1042,7 @@
    ],
    "group": "echo",
    "mutable": false,
-   "anchor": null,
+   "anchor": "left_ventricle",
    "map": null,
    "allowed": null,
    "stats": {
@@ -1060,7 +1060,7 @@
    "range": null,
    "group": "echo",
    "mutable": false,
-   "anchor": null,
+   "anchor": "left_ventricle",
    "map": null,
    "allowed": [
     0,
