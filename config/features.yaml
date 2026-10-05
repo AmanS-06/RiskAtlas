@@ -44,7 +44,7 @@
 - {name: thyroid_disease, raw: Thyroid Disease, label: Thyroid disease, group: demographics}
 - {name: chf, raw: CHF, label: Congestive heart failure, group: demographics}
 - {name: dlp, raw: DLP, label: Dyslipidemia, group: demographics}
-- {name: bp, raw: BP, label: Blood pressure, type: numeric, unit: mmHg, range: [90, 120], group: vitals, mutable: true}
+- {name: bp, raw: BP, label: Blood pressure, type: numeric, unit: mmHg, range: [90, 120], group: vitals, mutable: true, anchor: ascending_aorta}
 - {name: pr, raw: PR, label: Pulse rate, type: numeric, unit: bpm, range: [60, 100], group: vitals}
 - {name: edema, raw: Edema, label: Edema, group: vitals}
 - {name: weak_peripheral_pulse, raw: Weak Peripheral Pulse, label: Weak peripheral pulse, group: vitals}
@@ -58,11 +58,11 @@
 - {name: nonanginal, raw: Nonanginal, label: Non-anginal chest pain}
 - {name: exertional_cp, raw: Exertional CP, label: Exertional chest pain, use: false}
 - {name: lowth_ang, raw: LowTH Ang, label: Low-threshold angina}
-- {name: q_wave, raw: Q Wave, label: Q wave, group: ecg}
-- {name: st_elevation, raw: St Elevation, label: ST elevation, group: ecg}
-- {name: st_depression, raw: St Depression, label: ST depression, group: ecg}
-- {name: t_inversion, raw: Tinversion, label: T-wave inversion, group: ecg}
-- {name: lvh, raw: LVH, label: Left ventricular hypertrophy, group: ecg}
+- {name: q_wave, raw: Q Wave, label: Q wave, group: ecg, anchor: left_ventricle}
+- {name: st_elevation, raw: St Elevation, label: ST elevation, group: ecg, anchor: left_ventricle}
+- {name: st_depression, raw: St Depression, label: ST depression, group: ecg, anchor: left_ventricle}
+- {name: t_inversion, raw: Tinversion, label: T-wave inversion, group: ecg, anchor: left_ventricle}
+- {name: lvh, raw: LVH, label: Left ventricular hypertrophy, group: ecg, anchor: left_ventricle}
 - {name: poor_r_progression, raw: Poor R Progression, label: Poor R-wave progression, group: ecg}
 - {name: bbb, raw: BBB, label: Bundle branch block, type: categorical, group: ecg, map: {N: 0, LBBB: 1, RBBB: 2}}
 - {name: fbs, raw: FBS, label: Fasting blood sugar, type: numeric, unit: mg/dL, range: [70, 100], group: labs, mutable: true}
@@ -79,6 +79,6 @@
 - {name: lymph, raw: Lymph, label: Lymphocytes, type: numeric, unit: percent, range: [20, 40], group: labs}
 - {name: neut, raw: Neut, label: Neutrophils, type: numeric, unit: percent, range: [40, 70], group: labs}
 - {name: plt, raw: PLT, label: Platelets, type: numeric, unit: 1000/mm3, range: [150, 450], group: labs}
-- {name: ef_tte, raw: EF-TTE, label: Ejection fraction (echo), type: numeric, unit: percent, range: [55, 70], group: echo}
-- {name: region_rwma, raw: Region RWMA, label: Regional wall motion abnormality, type: categorical, group: echo}
+- {name: ef_tte, raw: EF-TTE, label: Ejection fraction (echo), type: numeric, unit: percent, range: [55, 70], group: echo, anchor: left_ventricle}
+- {name: region_rwma, raw: Region RWMA, label: Regional wall motion abnormality, type: categorical, group: echo, anchor: left_ventricle}
 - {name: vhd, raw: VHD, label: Valvular heart disease, type: numeric, group: echo, map: {N: 0, mild: 1, Moderate: 2, Severe: 3}}
