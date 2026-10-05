@@ -43,5 +43,13 @@ export default function App() {
       </Suspense>
     );
   }
+  return <DarkLanding />;
+}
+
+/** The landing page is a night scene whatever the theme preference: it is dark, and the workspace restores the chosen theme when it opens. */
+function DarkLanding() {
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }, []);
   return <Landing />;
 }

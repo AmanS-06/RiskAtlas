@@ -6,9 +6,13 @@
 import { chromium } from 'playwright-core';
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
+// BASE: where the app is served. REAL=1 runs against the real API instead of the mock (BASE=http://127.0.0.1:8000 with `uvicorn api.main:app` serving web/dist).
 const BASE = process.env.BASE ?? 'http://127.0.0.1:5173';
+const MOCK = process.env.REAL ? '' : 'mock=1&';
+const axeSource = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
 const chrome =
   process.env.CHROME ?? ['C:/Program Files/Google/Chrome/Application/chrome.exe', '/usr/bin/google-chrome', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'].find(existsSync);
 if (!chrome) throw new Error('Chrome not found: set CHROME');
@@ -16,6 +20,14 @@ const shots = resolve(dirname(fileURLToPath(import.meta.url)), 'shots');
 mkdirSync(shots, { recursive: true });
 
 const failures = [];
+/** axe-core scan of the page as it is now. Serious and critical findings fail the run; the rest are printed. */
+async function axeScan(page, name) {
+  await page.addScriptTag({ path: axeSource });
+  const { violations } = await page.evaluate(() => window.axe.run(document, { resultTypes: ['violations'] }));
+  const bad = violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
+  for (const v of violations) console.log(`     axe ${v.impact}: ${v.id} (${v.nodes.length}) ${v.nodes[0]?.target?.join(' ') ?? ''}`);
+  check(bad.length === 0, `${name}: no serious or critical accessibility violations (axe)`);
+}
 const check = (ok, what) => {
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`);
   if (!ok) failures.push(what);
@@ -29,11 +41,12 @@ try {
   page.on('console', (m) => m.type() === 'error' && !/Failed to load resource/.test(m.text()) && errors.push(m.text()));
 
   // landing
-  await page.goto(`${BASE}/?mock=1&quality=high`);
+  await page.goto(`${BASE}/?${MOCK}quality=high`);
   await page.getByTestId('landing').waitFor();
   check((await page.locator('h1').count()) === 1, 'landing: one h1');
   check(await page.getByTestId('disclaimer-banner').isVisible(), 'landing: disclaimer visible');
   await page.screenshot({ path: `${shots}/landing.png` });
+  await axeScan(page, 'landing');
 
   // workspace
   await page.getByTestId('cta-open').click();
@@ -49,6 +62,7 @@ try {
 
   await page.getByTestId('preset-illustrative-high').click();
   await page.getByTestId('prob-CAD').waitFor();
+  check(((await page.getByTestId('mock-chip').count()) === 1) === !process.env.REAL, process.env.REAL ? 'real API: no mock badge' : 'mock mode is flagged');
   check((await page.getByTestId('prob-LAD').textContent()).includes('%'), 'prediction shows per-vessel probabilities');
   await page.waitForTimeout(1500);
 
@@ -63,6 +77,7 @@ try {
   check(/What drives it/.test(await card.textContent()), 'LAD panel lists the drivers');
   await page.waitForTimeout(900);
   await page.screenshot({ path: `${shots}/workspace_lad.png` });
+  await axeScan(page, 'workspace with a region panel open');
 
   await page.getByRole('button', { name: 'Left ventricle' }).click();
   await page.getByText('Findings on this structure').waitFor();

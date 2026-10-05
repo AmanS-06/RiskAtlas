@@ -282,18 +282,14 @@
 }
 .hud-chip:hover,
 .hud-chip.is-on {
-  background: var(--chip, var(--hud-line));
-  color: var(--accent-contrast);
+  background: color-mix(in srgb, var(--chip, var(--hud-line)) 30%, var(--hud-bg));
+  box-shadow: 0 0 0 1px var(--chip, var(--hud-line));
 }
 .chip-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
   background: var(--chip, var(--hud-line));
-}
-.hud-chip:hover .chip-dot,
-.hud-chip.is-on .chip-dot {
-  background: currentColor;
 }
 .hud-tip {
   position: absolute;

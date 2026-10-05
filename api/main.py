@@ -61,6 +61,10 @@ class WebFiles(StaticFiles):
         parts = path.replace(os.sep, "/").split("/")
         if parts[0] == "api" or scope["method"] not in ("GET", "HEAD"):
             raise StarletteHTTPException(404)
+        if path.strip("/") == "legacy":
+            # The first version of the UI, kept in the repo (web-legacy/) and built into dist/legacy/ by the Dockerfile. Its page has no
+            # client-side routes either; /legacy and /legacy/ open it. If it was not built, this is the new app's page like any other path.
+            path = "legacy/index.html"
         try:
             return await super().get_response(path, scope)
         except StarletteHTTPException as exc:
@@ -76,7 +80,7 @@ class WebFiles(StaticFiles):
             rel = ""
         # index.html must be re-checked on every load (its asset names change on each build); the hashed files
         # under assets/ never change; the 3D models keep their names, so they get a short lifetime.
-        response.headers["Cache-Control"] = ("no-cache" if rel == "index.html" else
+        response.headers["Cache-Control"] = ("no-cache" if rel.endswith("index.html") else
                                              "public, max-age=31536000, immutable" if rel.startswith("assets/") else
                                              "public, max-age=3600")
         return response

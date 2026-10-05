@@ -13,11 +13,21 @@ WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
 COPY web/ ./
-# The About tab bundles the licence page from the repo root (web/src/dashboard/Dashboard.tsx imports ../../../ASSETS_AND_LICENSES.md).
+# The About tab bundles the licence page from the repo root (web/src/app/Workspace.tsx imports ../../../ASSETS_AND_LICENSES.md).
 COPY ASSETS_AND_LICENSES.md /src/ASSETS_AND_LICENSES.md
 # Same origin: the client calls /api/*. Set here so a stray web/.env file cannot change it.
 ENV VITE_API_BASE=/api
 RUN npm run build
+
+# ---- 1b. build the first version of the UI (web-legacy/) under /legacy/ ------------------------------------------
+FROM node:22-slim AS legacy
+WORKDIR /src/web-legacy
+COPY web-legacy/package.json web-legacy/package-lock.json ./
+RUN npm ci
+COPY web-legacy/ ./
+COPY ASSETS_AND_LICENSES.md /src/ASSETS_AND_LICENSES.md
+ENV VITE_API_BASE=/api
+RUN npm run build -- --base=/legacy/
 
 # ---- 2. runtime -------------------------------------------------------------------------------------------------
 FROM python:3.11-slim AS runtime
@@ -42,6 +52,7 @@ COPY models/ ./models/
 COPY reports/example_prediction.json ./reports/example_prediction.json
 COPY ASSETS_AND_LICENSES.md ./
 COPY --from=web /src/web/dist ./web/dist
+COPY --from=legacy /src/web-legacy/dist ./web/dist/legacy
 
 # Non-root. UID 1000 is what Hugging Face Spaces runs containers as. matplotlib and numba want a writable cache dir.
 RUN useradd --create-home --uid 1000 --shell /usr/sbin/nologin riskatlas \

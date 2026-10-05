@@ -332,7 +332,6 @@ export function Stage({ d, region, onRegion, style, onStyle, territory, onTerrit
             className={`hud-chip${region === c.id ? ' is-on' : ''}`}
             style={{
               transform: `translate(${c.cx}px, ${c.cy}px) translate(${c.side === 'r' ? '0' : '-100%'}, -50%)`,
-              opacity: Math.max(0.3, c.facing),
               ['--chip' as string]: c.color ?? 'var(--hud-line)',
             }}
             onClick={() => select(region === c.id ? null : c.id)}

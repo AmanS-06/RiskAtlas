@@ -316,3 +316,29 @@ def test_every_file_the_real_build_refers_to_is_served(clean_env):
             assert r.headers["content-type"].split(";")[0] in ("text/javascript", "text/css", "model/gltf-binary"), ref
         assert (REAL_DIST / "models3d" / "heart.glb").stat().st_size == len(c.get("/models3d/heart.glb", headers={"Accept-Encoding": "identity"}).content)
         assert c.get("/").text == html
+
+
+def test_legacy_ui_opens_at_slash_legacy_when_it_was_built(dist, clean_env):
+    (dist / "legacy").mkdir()
+    (dist / "legacy" / "index.html").write_bytes(b"<!doctype html><title>legacy-ui</title>")
+    with TestClient(create_app(mock=True, web_dist=dist)) as c:
+        for path in ("/legacy", "/legacy/", "/legacy/index.html"):
+            r = c.get(path)
+            assert r.status_code == 200 and "legacy-ui" in r.text, path
+            assert r.headers["cache-control"] == "no-cache"
+        assert "dist-under-test" in c.get("/").text          # the new app is still the default page
+
+
+def test_slash_legacy_falls_back_to_the_new_app_when_no_legacy_build_exists(client):
+    r = client.get("/legacy/")
+    assert r.status_code == 200 and "dist-under-test" in r.text
+
+
+def test_media_files_support_range_requests_so_the_scroll_video_can_seek(dist, clean_env):
+    (dist / "media").mkdir()
+    (dist / "media" / "hero.mp4").write_bytes(bytes(range(256)) * 40)
+    with TestClient(create_app(mock=True, web_dist=dist)) as c:
+        r = c.get("/media/hero.mp4", headers={"Range": "bytes=0-99"})
+        assert r.status_code == 206
+        assert r.headers["content-type"] == "video/mp4"
+        assert len(r.content) == 100 and r.headers["content-range"].startswith("bytes 0-99/")

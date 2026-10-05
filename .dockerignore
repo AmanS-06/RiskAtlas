@@ -31,9 +31,13 @@ web/.env.*
 **/node_modules
 web/dist
 web/tests
-web/viewer-demo
 web/scripts
+web/render-assets
 web/.vite
+web-legacy/dist
+web-legacy/tests
+web-legacy/viewer-demo
+web-legacy/scripts
 
 # data (the raw dataset is downloaded, not committed) and model staging
 data
