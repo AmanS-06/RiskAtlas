@@ -49,6 +49,8 @@ export interface AtlasOptions {
   reducedMotion?: boolean;
   /** CSS colour of the stage behind the heart (the canvas is opaque so bloom works). */
   background?: string;
+  /** No render loop and no orbit controls: the caller advances time with stepManual(). Used to render the landing page video frame by frame. */
+  manual?: boolean;
 }
 
 /** Screen position of a region's anchor, CSS px from the container's top-left. */
@@ -213,6 +215,8 @@ export class AtlasViewer {
   private tween: { start: number; dur: number; from: Pose; to: Pose; done: () => void } | null = null;
   private focused = false;
   private interactedAt = -Infinity;
+  private pivot = new THREE.Vector3();
+  private backdrop: { meshes: THREE.Mesh[]; materials: THREE.ShaderMaterial[] } | null = null;
   private shift = 0;
   private shiftTarget = 0;
   private shiftApplied = Number.NaN;
@@ -403,6 +407,56 @@ export class AtlasViewer {
 
   regionIds(): string[] {
     return [...this.regions.keys()];
+  }
+
+  /**
+   * A translucent X-ray copy of another model (the bony thorax) drawn around the heart, in the heart's own frame. Not pickable. Used by the landing video.
+   */
+  async addBackdrop(url: string, color = '#bfe8ff'): Promise<void> {
+    const gltf = await new GLTFLoader().loadAsync(url);
+    gltf.scene.updateWorldMatrix(true, true);
+    const meshes: THREE.Mesh[] = [];
+    const materials: THREE.ShaderMaterial[] = [];
+    gltf.scene.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      const geo = plainGeometry(m.geometry, m.matrixWorld);
+      geo.translate(-this.pivot.x, -this.pivot.y, -this.pivot.z);
+      if (!geo.getAttribute('normal')) geo.computeVertexNormals();
+      const n = geo.getAttribute('position').count;
+      geo.setAttribute('aTerr', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+      geo.setAttribute('aCover', new THREE.BufferAttribute(new Float32Array(n), 1));
+      const mat = holoMaterial(this.shared, color, 0.5);
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.renderOrder = 0;
+      this.root.add(mesh);
+      meshes.push(mesh);
+      materials.push(mat);
+    });
+    this.backdrop = { meshes, materials };
+  }
+
+  /** 0 (hidden) to 1 (full) strength of the backdrop model. */
+  setBackdropOpacity(a: number): void {
+    if (!this.backdrop) return;
+    for (const m of this.backdrop.materials) m.uniforms.uOpacity!.value = Math.max(0, Math.min(1, a));
+    for (const m of this.backdrop.meshes) m.visible = a > 0.002;
+  }
+
+  /** Put the camera somewhere, at once (no tween, no controls). */
+  setPose(pos: readonly [number, number, number], target: readonly [number, number, number]): void {
+    this.camera.position.set(pos[0], pos[1], pos[2]);
+    this.camera.lookAt(target[0], target[1], target[2]);
+    if (this.controls) this.controls.target.set(target[0], target[1], target[2]);
+    this.camera.updateMatrixWorld(true);
+  }
+
+  /** Advance time by `dt` seconds and draw one frame. For manual mode, where the caller owns the clock. */
+  stepManual(dt: number): void {
+    if (!this.loaded || this.disposed) return;
+    this.t += dt;
+    this.update(dt, this.t * 1000);
+    this.renderFrame();
   }
 
   dispose(): void {
@@ -652,6 +706,7 @@ export class AtlasViewer {
     const box = new THREE.Box3();
     for (const p of parts) if (/^(left|right)_(atrium|ventricle)$/.test(p.node)) box.expandByObject(new THREE.Mesh(p.geo));
     const pivot = box.isEmpty() ? new THREE.Vector3() : box.getCenter(new THREE.Vector3());
+    this.pivot.copy(pivot);
     for (const p of parts) p.geo.translate(-pivot.x, -pivot.y, -pivot.z);
 
     const arteryPoints: Float32Array[] = [];
@@ -935,7 +990,7 @@ export class AtlasViewer {
   // ---- loop ----------------------------------------------------------------
 
   private start(): void {
-    if (this.running || this.disposed || !this.loaded || document.hidden) return;
+    if (this.running || this.disposed || !this.loaded || document.hidden || this.opts.manual) return;
     this.running = true;
     this.last = performance.now();
     this.raf = requestAnimationFrame(this.frame);
@@ -1047,11 +1102,11 @@ export class AtlasViewer {
         tw.done();
       }
     }
-    if (this.controls) {
+    if (this.controls && !this.opts.manual) {
       this.controls.autoRotate = this.style === 'holo' && !this.reduced && !this.selected && !this.tween && now - this.interactedAt > 5000;
       this.controls.update();
     }
-    if (this.pending) {
+    if (this.pending && !this.opts.manual) {
       const { x, y } = this.pending;
       this.pending = null;
       this.root.updateMatrixWorld(true);

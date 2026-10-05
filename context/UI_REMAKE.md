@@ -43,7 +43,8 @@ Backend, ML and API are not touched.
 
 ## Status
 - Done: tokens, shell, viewer (regions, hover, click, fly-to, heartbeat, territories, two looks, bloom, tiers), HUD chips and region card, intake, ported tests.
-- Next: landing page with skeleton video, report mode, richer panels (waterfall, what-if ghost heart), new browser e2e, deploy (new UI at `/`, old UI at `/legacy`), cleanup of unused old viewer files.
+- Done: landing page with the skeleton video (scroll-scrubbed), honest-numbers section, routes.
+- Next: report mode, richer panels (waterfall, what-if ghost heart), new browser e2e, deploy (new UI at `/`, old UI at `/legacy`), cleanup of unused old viewer files.
 
 ## Open items
 - Final form of the special report (fly-through only, or also PDF).
