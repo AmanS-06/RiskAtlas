@@ -1,0 +1,5 @@
+dist
+node_modules
+src/api/mock/*.json
+src/dashboard/presets.json
+package-lock.json

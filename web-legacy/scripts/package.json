@@ -1,0 +1,21 @@
+{
+  "name": "riskatlas-viewer-asset-scripts",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Asset tooling for web/public/models3d (not shipped to the browser)",
+  "type": "module",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "scripts": {
+    "models": "node build_viewer_models.mjs",
+    "validate": "node validate_models.mjs",
+    "bands": "node gen_viewer_bands.mjs",
+    "cvd": "node cvd_check.mjs"
+  },
+  "devDependencies": {
+    "@gltf-transform/core": "4.5.1",
+    "gltf-validator": "2.0.0-dev.3.10",
+    "yaml": "2.9.1"
+  }
+}
