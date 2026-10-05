@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Counterfactual } from '../api';
+import type { Counterfactual, FastPrediction } from '../api';
 import { errorTitle } from '../api';
 import type { AtlasStyle } from '../atlas/AtlasViewer';
 import { AboutPanel, ExplanationPanel, PhysiologyPanel, WhatIfPanel } from '../dashboard/analysis';
@@ -32,6 +32,9 @@ export function Workspace() {
   const [look, setLook] = useState<AtlasStyle>(initialLook);
   const [territory, setTerritory] = useState(true);
   const [focus, setFocus] = useState(false);
+  const [ghostState, setGhost] = useState<{ changes: Counterfactual['changes']; pred: FastPrediction | null; key: string } | null>(null);
+  const rawKey = JSON.stringify(d.raw);
+  const ghost = ghostState && ghostState.key === rawKey ? ghostState : null; // any edit of the patient ends the preview
   const { meta } = d;
 
   const changeLook = useCallback((s: AtlasStyle) => {
@@ -57,6 +60,24 @@ export function Workspace() {
       setRegion(t?.mesh ?? null);
     },
     [d, meta],
+  );
+
+  // what-if on the heart: the same patient with the suggested changes, predicted by the fast model, drawn instead of the current one
+  const previewChanges = useCallback(
+    (changes: Counterfactual['changes'] | null) => {
+      if (!changes) {
+        setGhost(null);
+        return;
+      }
+      setGhost({ changes, pred: null, key: rawKey });
+      const inputs = { ...d.parsed.inputs };
+      for (const c of changes) inputs[c.feature] = c.to;
+      d.provider
+        .predict('fast', inputs)
+        .then((pred) => setGhost((g) => (g && g.changes === changes ? { ...g, pred } : g)))
+        .catch(() => setGhost(null));
+    },
+    [d.provider, d.parsed.inputs, rawKey],
   );
 
   const applyChanges = useCallback(
@@ -121,6 +142,8 @@ export function Workspace() {
           </aside>
           <Stage
             d={d}
+            ghost={ghost?.pred ?? null}
+            onGhostClear={() => setGhost(null)}
             region={region}
             onRegion={onRegion}
             style={look}
@@ -156,7 +179,7 @@ export function Workspace() {
               panels={{
                 explain: <ExplanationPanel {...analysis} />,
                 physiology: <PhysiologyPanel {...analysis} />,
-                whatif: <WhatIfPanel {...analysis} onApply={applyChanges} />,
+                whatif: <WhatIfPanel {...analysis} onApply={applyChanges} onPreview={previewChanges} previewing={!!ghost} />,
                 about: <AboutPanel meta={meta} bands={d.bands} assets={assetsText} />,
               }}
             />

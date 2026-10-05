@@ -5,6 +5,7 @@ import { liveRegions, REGIONS, regionById, clampBpm } from '../atlas/logic';
 import { findBand } from '../shared/palette';
 import { pct } from '../shared/format';
 import { prefersReducedMotion } from '../shared/env';
+import type { FastPrediction } from '../api';
 import { PRESETS, type Dashboard } from '../dashboard/useDashboard';
 import { buildRegionCard } from './regionInfo';
 import { RegionCardView } from './RegionCardView';
@@ -14,6 +15,9 @@ import { buildReportSteps } from './reportSteps';
 
 interface Props {
   d: Dashboard;
+  /** the same patient with the what-if changes applied; drawn instead of the current prediction while set */
+  ghost: FastPrediction | null;
+  onGhostClear: () => void;
   region: string | null;
   onRegion: (id: string | null) => void;
   style: AtlasStyle;
@@ -34,7 +38,7 @@ function forcedQuality(): 'high' | 'low' | undefined {
   return q === 'high' || q === 'low' ? q : undefined;
 }
 
-export function Stage({ d, region, onRegion, style, onStyle, territory, onTerritory, enlarged, onEnlarge }: Props) {
+export function Stage({ d, ghost, onGhostClear, region, onRegion, style, onStyle, territory, onTerritory, enlarged, onEnlarge }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const viewer = useRef<AtlasViewer | null>(null);
   const regionRef = useRef(onRegion);
@@ -127,19 +131,19 @@ export function Stage({ d, region, onRegion, style, onStyle, territory, onTerrit
     const states: Record<string, { probability: number; band: string; color: string; uncertaintyWidth?: number } | undefined> = {};
     for (const t of d.vessels) {
       if (!t.mesh) continue;
-      const r = d.prediction?.targets[t.id];
+      const r = (ghost ?? d.prediction)?.targets[t.id];
       const band = r && findBand(d.bands, r.band);
-      const unc = d.full?.targets[t.id]?.uncertainty;
+      const unc = ghost ? undefined : d.full?.targets[t.id]?.uncertainty;
       states[t.mesh] =
         r && band
           ? { probability: r.probability, band: r.band, color: band.color, uncertaintyWidth: unc ? Math.min(1, Math.max(0, unc.width)) : undefined }
           : undefined;
     }
     v.setVessels(states);
-    const o = d.overall && d.prediction?.targets[d.overall.id];
+    const o = d.overall && (ghost ?? d.prediction)?.targets[d.overall.id];
     const ob = o && findBand(d.bands, o.band);
     v.setOverall(o && ob ? { color: ob.color, probability: o.probability } : null);
-  }, [ready, d.prediction, d.full, d.vessels, d.bands, d.overall]);
+  }, [ready, ghost, d.prediction, d.full, d.vessels, d.bands, d.overall]);
 
   // heart rate from the pulse input
   const pulse = d.parsed.inputs.pr;
@@ -277,11 +281,12 @@ export function Stage({ d, region, onRegion, style, onStyle, territory, onTerrit
         const ux = dx / len;
         const uy = dy / len;
         const target = d.vessels.find((t) => t.mesh === id);
-        const resp = target && d.prediction?.targets[target.id];
+        const resp = target && (ghost ?? d.prediction)?.targets[target.id];
+        const was = ghost && target ? d.prediction?.targets[target.id] : undefined;
         const band = resp && findBand(d.bands, resp.band);
         const def = regionById(id);
         const label = target
-          ? `${target.mesh} ${resp ? pct(resp.probability) : ''}`.trim()
+          ? `${target.mesh} ${was && resp ? `${pct(was.probability)}→${pct(resp.probability)}` : resp ? pct(resp.probability) : ''}`.trim()
           : id === 'left_ventricle'
             ? 'LV'
             : id === 'ascending_aorta'
@@ -299,7 +304,7 @@ export function Stage({ d, region, onRegion, style, onStyle, territory, onTerrit
           side: ux >= 0 ? 'r' : 'l',
         };
       });
-  }, [live, points, box, d.vessels, d.prediction, d.bands]);
+  }, [live, points, box, ghost, d.vessels, d.prediction, d.bands]);
 
   const anchor = region ? points[region] : undefined;
   const cardX = Math.max(16, box.w - CARD_W - 16);
@@ -460,6 +465,15 @@ export function Stage({ d, region, onRegion, style, onStyle, territory, onTerrit
       )}
       {typeof document !== 'undefined' &&
         createPortal(<PrintReport patient={patientLine} rows={printRows} steps={steps} shots={shots} date={new Date().toLocaleDateString()} />, document.body)}
+
+      {ghost && (
+        <div className="stage-ghost" role="status" data-testid="ghost-banner">
+          What-if preview: this patient with the suggested changes (before → after)
+          <button type="button" className="tool" onClick={onGhostClear}>
+            Back to the current heart
+          </button>
+        </div>
+      )}
 
       {d.busy.full && (
         <div className="stage-scan" role="status">

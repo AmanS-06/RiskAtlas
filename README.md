@@ -16,40 +16,30 @@ spots (LCX and RCA, ROC-AUC about 0.72 to 0.73) are reported as they are.
 > educational purposes only. It is not a medical device, does not provide a diagnosis, and is not a
 > substitute for formal diagnostic imaging or clinical judgement.
 
-![RiskAtlas dashboard at 1920 by 1080: 3D heart with a labelled chip on each coronary artery and the predicted risk on the left, SHAP explanation for the LAD on the right](docs/figures/app_dashboard_high.png)
+![The workspace: a hologram heart with a panel open on the LAD artery, patient form on the left, results and explanation on the right](docs/figures/app_workspace.png)
 
-*The app at 1920×1080 (illustrative high-risk preset, LAD selected), served by the single-process production
-server against the real models and rendered without a GPU, so the viewer uses its lite model. Other views:
-[Enlarge mode](docs/figures/app_dashboard_enlarged.png), [phone width](docs/figures/app_phone_high.png),
-[physiology tab](docs/figures/app_dashboard_moderate_physiology.png),
-[what-if tab](docs/figures/app_dashboard_whatif.png). In-app viewer for the three risk bands:
-[low](docs/figures/app_viewer_low.png), [moderate](docs/figures/app_viewer_moderate.png),
-[high](docs/figures/app_viewer_high.png), and [LCX selected](docs/figures/app_viewer_high_LCX_selected.png).
-Standard-model viewer harness: [low](docs/figures/viewer_bands_all_low.png),
-[moderate](docs/figures/viewer_bands_all_moderate.png), [high](docs/figures/viewer_bands_all_high.png),
-[LAD selected](docs/figures/viewer_selected_LAD.png), [LCX selected](docs/figures/viewer_selected_LCX.png).*
+*The workspace (real API, illustrative high-risk case): click any structure of the heart and its panel opens with the patient's own values, what drives the
+estimate and how far to trust it.* The landing page is [here](docs/figures/app_landing.png). The first version of the UI is kept in
+[`web-legacy/`](web-legacy/LEGACY.md) (git tag `legacy-ui-v1`) and is served at `/legacy` by the deployed app.
 
 ---
 
 ## Status
 
-Working end to end: ML pipeline, FastAPI backend, React dashboard and three.js viewer are integrated
-and tested. Checked on a clean copy of this tree on 2026-10-05: 189 Python tests pass (3 more need the dataset and are
-skipped), 193 web unit and component tests pass, 38 browser tests pass against the real backend (33 without
-it), and the one-process production server passes its 5-step browser check. The viewer harness has 72 unit and
-56 browser tests of its own.
+Working end to end: ML pipeline, FastAPI backend, and a rebuilt web app. The UI has a landing page (a ribcage video that plays as you scroll, honest
+validation numbers) and a workspace: a touchable 3D heart (every structure can be clicked, the arteries carry the model's output, the left ventricle and
+aorta carry the findings anchored to them), a heartbeat that follows the entered pulse rate, muscle tinted by the artery that feeds it (approximate), a
+hologram and a realistic look, a guided report with a printable one-page summary, what-if on the heart, per-vessel reliability notes and an explanation
+dashboard. Checks: 188 Python tests, 234 web unit tests, and a browser test in real Chrome (`cd web && npm run e2e`: landing, workspace, report, print,
+axe accessibility scans, frame times; about 60 fps with every effect on an integrated GPU).
 
-Not built: a heartbeat animation, the 17-segment bullseye, the clinical-report reader (`cv/`) and the
-natural-language layer (`slm/`); the last two folders are empty placeholders. There is no hosted demo
-yet, but it runs as one process and is ready to deploy ([docs/DEPLOY.md](docs/DEPLOY.md)).
-
-Project documentation (the 6-page document): [docs/PROJECT_DOCUMENTATION.pdf](docs/PROJECT_DOCUMENTATION.pdf)
-([Markdown source](docs/PROJECT_DOCUMENTATION.md)).
+Not built: the 17-segment bullseye, the clinical-report reader (`cv/`) and the natural-language layer (`slm/`); the last two folders are empty placeholders.
 
 ## Live demo
 
-Not deployed yet. One process serves the web app and the API: see [docs/DEPLOY.md](docs/DEPLOY.md)
-(laptop script, Docker, Render, Hugging Face Spaces). Deploying needs an account on the host.
+https://riskatlas-0de1.onrender.com (Render free instance: it sleeps when idle and the first request can take about a minute while the models load).
+One process serves the web app and the API; see [docs/DEPLOY.md](docs/DEPLOY.md) for Docker, Render and Hugging Face Spaces. The first version of the UI
+is at `/legacy`.
 
 ## Track A requirements and where they are met
 
@@ -67,7 +57,7 @@ Not deployed yet. One process serves the web app and the API: see [docs/DEPLOY.m
 | Physiological measurements with their contribution | Physiology tab: value, reference range, status and share of the explanation for the 18 numeric features that have a reference range | [web](docs/web.md) |
 | Open-source 3D mesh | Z-Anatomy (from BodyParts3D), CC BY-SA 4.0, built reproducibly into two `.glb` files | [ASSETS_AND_LICENSES](ASSETS_AND_LICENSES.md) |
 | Clinical safety disclaimer in the UI | A banner at the top, visible without scrolling and after scrolling, at every tested screen size (7 sizes from 320 to 1920 px wide) | [web](docs/web.md) |
-| Responsive without a dedicated GPU | On-demand rendering and an automatic lite path on software GL; measured 18 to 23 frames per second at 1280×800 and 38 to 40 on a phone-sized view on a shared 4-vCPU no-GPU VM (worst case, ±30%; other sessions on the same kind of VM gave 27 to 33) | [viewer](docs/viewer.md) section 6 |
+| Responsive without a dedicated GPU | On-demand rendering and an automatic lite path on software GL; measured about 32 to 33 frames per second at 1280×800 on a no-GPU VM, worst case, ±30% | [viewer](docs/viewer.md) section 6 |
 | Add features, models or structures without a redesign | Features, targets, mesh names and band colours come from `config/*.yaml` and are served through `/meta` | [web](docs/web.md) |
 | Consistent LAD, LCX, RCA correspondence | Node names are the `mesh` values of `config/manifest.yaml`; a test fails if manifest, type and `.glb` files disagree | [viewer](docs/viewer.md) |
 
@@ -172,8 +162,7 @@ npm run dev                        # http://localhost:5173 ; /api is proxied to 
 
 Open the URL that `npm run dev` prints (it is `http://localhost:5173` unless that port is taken). Pick one of
 the three illustrative patients or type values (every field is optional), press **Predict risk**, drag a
-slider to recolour the heart live, click a vessel to inspect it, and press **Enlarge** for a bigger 3D view
-(Escape or **Shrink** to return).
+slider to recolour the heart live, and click a vessel to inspect it.
 
 **No backend?** Open `http://localhost:5173/?mock=1`, or start the app with `VITE_API_MOCK=1 npm run dev`: it
 then shows a fixed example payload, flagged "MOCK DATA - not a real prediction" on every screen. The API has
@@ -188,13 +177,12 @@ its own mock mode, `API_MOCK=1 uvicorn api.main:app --port 8000` (no models load
 ### Tests
 
 ```bash
-python -m pytest                                  # about 2 minutes; 189 pass, 3 skip without the dataset (one more skips until web/dist is built)
+python -m pytest                                  # about 1.5 minutes; 169 pass, 3 skip without the dataset
 cd web
 npm test                                          # 193 unit and component tests (Vitest, jsdom)
 npm run e2e                                       # real-browser tests, mock mode
 E2E_REAL_API=http://127.0.0.1:8000 npm run e2e    # adds 5 tests against a running backend: 33 in total
 npm run typecheck                                 # tsc --noEmit
-PROD_URL=http://127.0.0.1:8000 node tests/e2e/prod.mjs   # 5 checks against the one-process server (see Production build)
 ```
 
 The stand-alone viewer harness has its own tests (72 unit, 56 browser): `cd web/viewer-demo && npm ci && npm test && npm run test:e2e`.
@@ -259,8 +247,8 @@ reference, real request and response examples, error codes: [docs/api.md](docs/a
   for the data, place the files by hand (see Retrain).
 - **Windows: `DLL load failed while importing _devicearray: An Application Control policy has blocked this file`.**
   A managed-laptop security policy blocked a file from numba (a dependency of shap), so every API and model test
-  fails. `requirements.txt` pins numba 0.65.1 and llvmlite 0.47.0, which load fine on such a machine (reported as verified on a
-  Windows 11 laptop when it was added, with 97 passed and 3 skipped; the suite has grown since, and we did not re-run it on Windows). If you installed before that pin, run
+  fails. `requirements.txt` pins numba 0.65.1 and llvmlite 0.47.0, which load fine on such a machine (verified on a
+  Windows 11 laptop: 97 passed, 3 skipped). If you installed before that pin, run
   `pip install numba==0.65.1 llvmlite==0.47.0`. If numba is blocked even then, run the Python side on another machine.
 - **`npm ci` fails with an engines error.** Node is older than 20.19; upgrade Node.
 - **HTTP 503 `model_mismatch`.** The models were trained against a different `config/features.yaml`; run
@@ -307,7 +295,8 @@ Licensed under CC BY 4.0.
 
 The upstream licence chain comes from the packager's own files and is not independently confirmed
 ([ASSETS_AND_LICENSES.md](ASSETS_AND_LICENSES.md) explains what was and was not verified). The same text is
-shown in the app's About tab.
+shown in the app's About tab. The licence of the application source code is not yet stated in this
+repository.
 
 ## Contributing
 

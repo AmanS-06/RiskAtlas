@@ -269,7 +269,13 @@ export function PhysiologyPanel(p: AnalysisProps) {
 
 // ---------------------------------------------------------------------------------------------- what-if
 
-export function WhatIfPanel(p: AnalysisProps & { onApply: (changes: Counterfactual['changes']) => void }) {
+export function WhatIfPanel(
+  p: AnalysisProps & {
+    onApply: (changes: Counterfactual['changes']) => void;
+    onPreview?: (changes: Counterfactual['changes'] | null) => void;
+    previewing?: boolean;
+  },
+) {
   const t = useTarget(p);
   const resp = t ? p.full?.targets[t.id] : undefined;
   const cf = resp?.counterfactual;
@@ -323,9 +329,22 @@ export function WhatIfPanel(p: AnalysisProps & { onApply: (changes: Counterfactu
                     </li>
                   ))}
                 </ul>
-                <button type="button" className="secondary" onClick={() => p.onApply(cf.changes)} data-testid="cf-apply">
-                  Try these values in the form
-                </button>
+                <div className="form-actions">
+                  {p.onPreview && (
+                    <button
+                      type="button"
+                      className="primary"
+                      aria-pressed={!!p.previewing}
+                      onClick={() => p.onPreview!(p.previewing ? null : cf.changes)}
+                      data-testid="cf-preview"
+                    >
+                      {p.previewing ? 'Back to the current heart' : 'Show on the heart'}
+                    </button>
+                  )}
+                  <button type="button" className="secondary" onClick={() => p.onApply(cf.changes)} data-testid="cf-apply">
+                    Try these values in the form
+                  </button>
+                </div>
               </>
             )}
             <p className="cf-note" data-testid="cf-note">
