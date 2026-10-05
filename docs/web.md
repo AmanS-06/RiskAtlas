@@ -60,7 +60,7 @@ web/src
 
 - while a slider is dragged or a number is typed, `preview()` sends a debounced `POST /predict/fast` (150 ms quiet time, but at least one request every 300 ms during a continuous drag). Vessel colours update live; the explanation on screen is marked as from the previous full prediction.
 - on release, blur, a select/toggle change, a preset, or the **Predict risk** button, `commit()` sends `POST /predict` (full: uncertainty, SHAP, counterfactuals). A blur that changed nothing sends nothing.
-- a request is aborted when a newer one of the same kind starts; a preview also cancels a stale full request; a reply is applied only if it is newer than what is shown, so replies that arrive out of order are dropped. Timeouts: 6 s fast, 30 s full, 8 s meta.
+- a request is aborted when a newer one of the same kind starts; a preview also cancels a stale full request; a reply is applied only if it is newer than what is shown, so replies that arrive out of order are dropped. Timeouts: 15 s fast, 120 s full, 20 s meta (generous so a free host with a fraction of a CPU still answers).
 - errors map to `ApiError` kinds: `network`, `timeout`, `validation` (422), `leakage` (422), `unavailable` (503), `server`, `bad_response`. The last good result stays on screen and the next edit retries. If `/meta` cannot be loaded the page says so, with Retry and an explicit "Use mock data instead".
 
 The request body is a flat dict of canonical feature names to numbers (`docs/ml_interface.md` section 2); blank fields are left out and come back in `input.missing`.

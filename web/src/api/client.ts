@@ -13,7 +13,8 @@ export interface HttpOptions {
   timeoutMs?: { meta: number; fast: number; full: number };
 }
 
-export const DEFAULT_TIMEOUTS = { meta: 8000, fast: 6000, full: 30000 };
+// Generous on purpose: a free Render instance has a fraction of a CPU, where a full prediction takes about 35 s (about 3 s on a laptop).
+export const DEFAULT_TIMEOUTS = { meta: 20000, fast: 15000, full: 120000 };
 const PATHS: Record<PredictMode, string> = { fast: '/predict/fast', full: '/predict' };
 
 export class HttpProvider implements ApiProvider {
