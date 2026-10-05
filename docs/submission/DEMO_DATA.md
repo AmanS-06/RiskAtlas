@@ -68,10 +68,10 @@ No what-if is needed here ("already below the goal" because no target is in the 
 | LCX | 57.9% (58%) | High | 55% to 69% |
 | RCA | 57.2% (57%) | High | 53% to 71% |
 
-SHAP, LAD (percentage points, base 60.8%): Typical chest pain +5.8, Age +3.7, LDL cholesterol +2.6, Pulse rate -2.6,
-Diabetes mellitus +2.2, Regional wall motion abnormality (code 0) -1.7. "Base 60.8% + contributions 15.4 pp = 76.2%": the page shows this
+SHAP, LAD (percentage points, base 60.8%): Typical chest pain +5.6, Age +4.0, Pulse rate -2.6, LDL cholesterol +2.5,
+Diabetes mellitus +2.1, Regional wall motion abnormality (code 0) -1.8. "Base 60.8% + contributions 15.4 pp = 76.2%": the page shows this
 addition and says it adds up.
-Physiology panel (sorted by contribution, LAD): LDL 160 mg/dL (reference 0 to 100) High, 7.4% of total effect; pulse rate 70 bpm
+Physiology panel (sorted by contribution, LAD): LDL 160 mg/dL (reference 0 to 100) High, 7.0% of total effect; pulse rate 70 bpm
 normal, 7.4%, lowers risk; fasting blood sugar 140 High; blood pressure 160 High.
 
 What-if, as shown by the app (real server output):

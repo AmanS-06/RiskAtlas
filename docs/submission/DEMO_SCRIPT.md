@@ -102,12 +102,12 @@ Criteria coverage: predictive performance (30%) segment 7; 3D visualization (25%
 **On screen (exact actions):**
 
 1. Click **Illustrative case C** to reset (so numbers match the script), select **LAD** in the results list (or press 1).
-2. Click the **Explanation** tab. The LAD tab is active. Point at the line "Base value 60.8% ... = 76.2%. This adds up to the predicted probability." Then run the cursor down the first five rows (Typical chest pain +5.8 pp, Age +3.7, LDL +2.6, Pulse rate -2.6, Diabetes +2.2).
+2. Click the **Explanation** tab. The LAD tab is active. Point at the line "Base value 60.8% ... = 76.2%. This adds up to the predicted probability." Then run the cursor down the first five rows (Typical chest pain +5.6 pp, Age +4.0, Pulse rate -2.6, LDL +2.5, Diabetes +2.1).
 3. Click the **Physiology** tab, click **Sort by contribution**. Point at LDL cholesterol (160 mg/dL, reference 0 to 100, High) and its share of the effect, then at one normal value.
 
 **Say:**
 
-> The Explanation tab shows why. For the LAD, the model starts from a base value of 60.8 percent and each input moves it. Typical chest pain adds 5.8 points, age 3.7, LDL 2.6, diabetes 2.2, while a normal pulse lowers it by 2.6. The contributions add up exactly to the 76.2 percent shown. These are associations, not causes. The Physiology tab lists each measurement against its reference range, flags what is high, and shows its share of the effect.
+> The Explanation tab shows why. For the LAD, the model starts from a base value of 60.8 percent and each input moves it. Typical chest pain adds 5.6 points, age 4.0, LDL 2.5, diabetes 2.1, while a normal pulse lowers it by 2.6. The contributions add up exactly to the 76.2 percent shown. These are associations, not causes. The Physiology tab lists each measurement against its reference range, flags what is high, and shows its share of the effect.
 
 ### Segment 6. What-if counterfactual (3:35 to 4:10)
 
