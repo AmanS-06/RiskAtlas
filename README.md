@@ -33,20 +33,21 @@ Standard-model viewer harness: [low](docs/figures/viewer_bands_all_low.png),
 ## Status
 
 Working end to end: ML pipeline, FastAPI backend, React dashboard and three.js viewer are integrated
-and tested. Checked on a clean copy: 97 Python tests pass (3 more need the dataset and are skipped), 193
+and tested. Checked on a clean copy: 169 Python tests pass (3 more need the dataset and are skipped), 193
 web unit and component tests pass, and 38 browser tests pass against the real backend (33 without it).
 The viewer harness has 72 unit and 56 browser tests of its own.
 
 Not built: a heartbeat animation, the 17-segment bullseye, the clinical-report reader (`cv/`) and the
-natural-language layer (`slm/`); the last two folders are empty placeholders. Not deployed: there is
-no hosted demo, so run it locally (below).
+natural-language layer (`slm/`); the last two folders are empty placeholders. There is no hosted demo
+yet, but it runs as one process and is ready to deploy ([docs/DEPLOY.md](docs/DEPLOY.md)).
 
 Project documentation (the 6-page document): [docs/PROJECT_DOCUMENTATION.pdf](docs/PROJECT_DOCUMENTATION.pdf)
 ([Markdown source](docs/PROJECT_DOCUMENTATION.md)).
 
 ## Live demo
 
-Not deployed yet.
+Not deployed yet. One process serves the web app and the API: see [docs/DEPLOY.md](docs/DEPLOY.md)
+(laptop script, Docker, Render, Hugging Face Spaces). Deploying needs an account on the host.
 
 ## Track A requirements and where they are met
 
@@ -176,15 +177,15 @@ then shows a fixed example payload, flagged "MOCK DATA - not a real prediction" 
 its own mock mode, `API_MOCK=1 uvicorn api.main:app --port 8000` (no models loaded; every response says
 `"mock": true`).
 
-**Production build.** `cd web && npm run build` type-checks and writes `web/dist`; `npm run preview` serves
-it on `http://localhost:4173` with the same `/api` proxy. A real deployment must either rewrite `/api/*` to
-the backend (stripping `/api`) or build with `VITE_API_BASE=https://your-api` and set `API_CORS_ORIGINS` on
-the API to the web origin.
+**Production build.** `cd web && npm run build` type-checks and writes `web/dist`; then
+`uvicorn api.main:app --port 8000` serves the web app and the API on one port (the API is also at `/api`).
+`scripts/serve_prod.sh` / `scripts/serve_prod.ps1` do both steps. `npm run preview` still serves the build on
+`http://localhost:4173` with the `/api` proxy. Hosting options: [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ### Tests
 
 ```bash
-python -m pytest                                  # about a minute; 97 pass, 3 skip without the dataset
+python -m pytest                                  # about 1.5 minutes; 169 pass, 3 skip without the dataset
 cd web
 npm test                                          # 193 unit and component tests (Vitest, jsdom)
 npm run e2e                                       # real-browser tests, mock mode
@@ -225,13 +226,16 @@ reproduce exactly, while the cross-validated estimates can move in the third dec
 | `API_CORS_ORIGINS` | API | Allowed web origins, comma separated or `*`. Default `http://localhost:5173`. Not needed with the dev or preview proxy |
 | `API_CACHE_FAST`, `API_CACHE_FULL` | API | Entries in the two LRU caches (defaults 512 and 64; `0` disables) |
 | `API_WARMUP` | API | `0` skips the start-up warm-up prediction (tests do) |
+| `SERVE_WEB` | API | `1` serves `web/dist` from the API process, `0` never; default: only if `web/dist/index.html` exists (for `uvicorn api.main:app`) |
+| `WEB_DIST` | API | Folder of the built web app (setting it turns serving on) |
+| `PORT` | host | Hosts set it; the Docker image uses it |
 | `RISKATLAS_ROOT` | API, pipeline | Moves `config/`, `models/` and `reports/` |
 | `VITE_API_BASE` | web build | API location, default `/api` |
 | `VITE_API_MOCK` | web | `1` starts in mock mode (`?mock=1` does it for one page load) |
 | `VITE_API_PROXY` | web dev and preview | Where `/api` is proxied to, default `http://localhost:8000` |
 | `E2E_REAL_API`, `E2E_CHROMIUM` | browser tests | Backend URL for the extra suite; path to a chrome binary |
 
-`.env.example` lists some of these under older names; the table above is what the code reads. Full API
+`.env.example` lists every variable with its default, commented out; nothing loads a `.env` file. Full API
 reference, real request and response examples, error codes: [docs/api.md](docs/api.md). Web app:
 [docs/web.md](docs/web.md). 3D viewer: [docs/viewer.md](docs/viewer.md).
 
