@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { AtlasStatus, AtlasStyle, AtlasViewer, HoverInfo, RegionPoint } from '../atlas/AtlasViewer';
 import { liveRegions, REGIONS, regionById, clampBpm } from '../atlas/logic';
 import { findBand } from '../shared/palette';
 import { pct } from '../shared/format';
 import { prefersReducedMotion } from '../shared/env';
-import type { Dashboard } from '../dashboard/useDashboard';
+import { PRESETS, type Dashboard } from '../dashboard/useDashboard';
 import { buildRegionCard } from './regionInfo';
 import { RegionCardView } from './RegionCardView';
+import { PrintReport, type PrintRow } from './PrintReport';
+import { ReportMode } from './ReportMode';
+import { buildReportSteps } from './reportSteps';
 
 interface Props {
   d: Dashboard;
@@ -40,6 +44,9 @@ export function Stage({ d, region, onRegion, style, onStyle, territory, onTerrit
   const [points, setPoints] = useState<Record<string, RegionPoint>>({});
   const [hover, setHover] = useState<HoverInfo | null>(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
+  const [report, setReport] = useState<{ i: number; play: boolean } | null>(null);
+  const [printing, setPrinting] = useState(false);
+  const [shots, setShots] = useState<Record<string, string>>({});
   const meta = d.meta;
 
   useEffect(() => {
@@ -150,8 +157,103 @@ export function Stage({ d, region, onRegion, style, onStyle, territory, onTerrit
 
   // leave room for the region panel: the heart slides to the left while one is open
   useEffect(() => {
-    if (ready) viewer.current?.setShift(region && box.w > 560 ? 0.2 : 0);
-  }, [ready, region, box.w]);
+    if (!ready) return;
+    viewer.current?.setShift(report ? -0.17 : region && box.w > 560 ? 0.2 : 0);
+  }, [ready, region, box.w, report]);
+
+  // the report: the steps of this case, the camera following them, autoplay, Escape
+  const steps = useMemo(
+    () =>
+      meta && d.prediction && d.full
+        ? buildReportSteps({ regionId: '', meta, bands: d.bands, prediction: d.prediction, full: d.full, inputs: d.parsed.inputs, specs: d.fieldSpecs })
+        : [],
+    [meta, d.prediction, d.full, d.bands, d.parsed.inputs, d.fieldSpecs],
+  );
+  const reportIndex = report ? Math.min(report.i, Math.max(0, steps.length - 1)) : 0;
+  const reportRegion = report ? (steps[reportIndex]?.regionId ?? null) : null;
+  const inReport = report !== null;
+  useEffect(() => {
+    if (inReport) onRegion(reportRegion);
+    // follow the step, not the callback identity
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inReport, reportRegion, reportIndex]);
+  useEffect(() => {
+    if (!report || !report.play) return;
+    const id = setTimeout(() => setReport((r) => (r ? (r.i < steps.length - 1 ? { ...r, i: r.i + 1 } : { ...r, play: false }) : r)), 7000);
+    return () => clearTimeout(id);
+  }, [report, steps.length]);
+
+  // the report takes the whole width (the side panels step aside) and gives it back afterwards
+  const openedFocus = useRef(false);
+  const startReport = useCallback(() => {
+    if (steps.length === 0) return;
+    openedFocus.current = !enlarged;
+    if (!enlarged) onEnlarge();
+    setReport({ i: 0, play: !prefersReducedMotion() });
+  }, [steps.length, enlarged, onEnlarge]);
+  const endReport = useCallback(() => {
+    setReport(null);
+    onRegion(null);
+    if (openedFocus.current) onEnlarge();
+    openedFocus.current = false;
+  }, [onRegion, onEnlarge]);
+
+  useEffect(() => {
+    if (!inReport) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') endReport();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [inReport, endReport]);
+
+  /** Visit the steps that have a picture in the printed summary, take a still of the 3D view at each, then open the print dialog. */
+  const printSummary = useCallback(async () => {
+    const v = viewer.current;
+    if (!v || steps.length === 0) return;
+    setPrinting(true);
+    const taken: Record<string, string> = {};
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    for (const st of steps.filter((x) => x.id !== 'limits').slice(0, 4)) {
+      onRegion(st.regionId);
+      await wait(prefersReducedMotion() ? 200 : 1300);
+      const png = v.snapshot();
+      if (png) taken[st.id] = png;
+    }
+    setShots(taken);
+    setPrinting(false);
+    setTimeout(() => window.print(), 120);
+  }, [steps, onRegion]);
+
+  const printRows: PrintRow[] = useMemo(() => {
+    if (!meta || !d.prediction) return [];
+    return [...(d.overall ? [d.overall] : []), ...d.vessels].flatMap((t) => {
+      const r = d.prediction!.targets[t.id];
+      if (!r) return [];
+      const u = d.full?.targets[t.id]?.uncertainty;
+      return [
+        {
+          id: t.id,
+          label: t.label,
+          probability: pct(r.probability),
+          band: findBand(d.bands, r.band)?.label ?? r.band,
+          interval: u ? `${pct(u.low)} to ${pct(u.high)}` : 'n/a',
+        },
+      ];
+    });
+  }, [meta, d.prediction, d.full, d.overall, d.vessels, d.bands]);
+  const patientLine = useMemo(() => {
+    const preset = d.presetId ? PRESETS.find((p) => p.id === d.presetId) : null;
+    if (preset) return `${preset.label}: ${preset.summary}`;
+    const bits: string[] = [];
+    const a = d.parsed.inputs.age;
+    if (typeof a === 'number') bits.push(`${a} years`);
+    const sx = d.parsed.inputs.sex;
+    if (sx === 1) bits.push('male');
+    if (sx === 0) bits.push('female');
+    bits.push(`${d.parsed.filled} of ${meta?.features.length ?? 0} inputs entered`);
+    return bits.join(', ');
+  }, [d.presetId, d.parsed.inputs, d.parsed.filled, meta]);
 
   const card = useMemo(
     () =>
@@ -207,7 +309,7 @@ export function Stage({ d, region, onRegion, style, onStyle, territory, onTerrit
   const failed = status?.error ?? loadError;
 
   return (
-    <section className="stage" aria-label="3D heart" data-testid="stage" data-ready={ready} data-region={region ?? ''}>
+    <section className={`stage${inReport ? ' is-report' : ''}`} aria-label="3D heart" data-testid="stage" data-ready={ready} data-region={region ?? ''}>
       <div ref={host} className="stage-canvas" data-testid="viewer" />
 
       {/* chips pinned to every region that has data */}
@@ -219,7 +321,7 @@ export function Stage({ d, region, onRegion, style, onStyle, territory, onTerrit
               <circle cx={c.x} cy={c.y} r={3.5} fill={c.color ?? 'var(--hud-line)'} />
             </g>
           ))}
-          {card && anchor && (
+          {card && anchor && !inReport && (
             <polyline className="hud-leader" points={`${anchor.x},${anchor.y} ${anchor.x + 26},${lineEndY} ${cardX},${lineEndY}`} key={region} />
           )}
         </svg>
@@ -247,7 +349,7 @@ export function Stage({ d, region, onRegion, style, onStyle, territory, onTerrit
             <span>{live.has(hoverDef.id) ? 'has data' : 'orientation only'}</span>
           </div>
         )}
-        {card && anchor && (
+        {card && anchor && !inReport && (
           <div className="hud-card" style={{ left: cardX, top: cardTop, width: CARD_W }} data-testid="region-card" key={`card-${region}`}>
             <RegionCardView card={card} onClose={() => select(null)} bands={d.bands} />
           </div>
@@ -284,6 +386,16 @@ export function Stage({ d, region, onRegion, style, onStyle, territory, onTerrit
           title="Tint the heart muscle by its nearest supplying artery (approximate)"
         >
           Territories
+        </button>
+        <button
+          type="button"
+          className="tool"
+          onClick={startReport}
+          disabled={!ready || steps.length === 0}
+          title={steps.length === 0 ? 'Run a full prediction first' : 'A guided tour of this case'}
+          data-testid="report-open"
+        >
+          Report
         </button>
         <button type="button" className="tool" onClick={() => viewer.current?.resetView()} disabled={!ready}>
           Reset view
@@ -333,6 +445,22 @@ export function Stage({ d, region, onRegion, style, onStyle, territory, onTerrit
           </span>
         )}
       </div>
+
+      {report && steps.length > 0 && (
+        <ReportMode
+          steps={steps}
+          index={reportIndex}
+          playing={report.play}
+          bands={d.bands}
+          printing={printing}
+          onIndex={(i) => setReport({ i, play: false })}
+          onPlaying={(on) => setReport({ i: reportIndex, play: on })}
+          onPrint={printSummary}
+          onClose={endReport}
+        />
+      )}
+      {typeof document !== 'undefined' &&
+        createPortal(<PrintReport patient={patientLine} rows={printRows} steps={steps} shots={shots} date={new Date().toLocaleDateString()} />, document.body)}
 
       {d.busy.full && (
         <div className="stage-scan" role="status">

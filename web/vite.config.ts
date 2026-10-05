@@ -16,8 +16,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test-setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
-    // the viewer track runs its own tests (web/viewer-demo)
-    exclude: ['src/viewer/**', 'node_modules/**'],
+    exclude: ['node_modules/**'],
     css: false,
   },
 });

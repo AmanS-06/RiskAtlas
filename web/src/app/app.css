@@ -730,3 +730,209 @@
     animation: none;
   }
 }
+
+/* ---- report mode: a guided tour, caption left, heart right ---- */
+.stage.is-report .structures,
+.stage.is-report .stage-tools,
+.stage.is-report .hud-chip,
+.stage.is-report .hud-lines,
+.stage.is-report .hint-line,
+.stage.is-report .stage-foot {
+  display: none;
+}
+.report {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: grid;
+  grid-template-rows: 1fr auto;
+}
+.report > * {
+  pointer-events: auto;
+}
+.report-card {
+  align-self: center;
+  justify-self: start;
+  margin-left: clamp(18px, 3vw, 44px);
+  width: min(430px, 46%);
+  padding: 22px 24px 24px;
+  background: var(--hud-bg);
+  border: 1px solid color-mix(in srgb, var(--hud-line) 45%, transparent);
+  border-radius: 4px;
+  box-shadow: var(--shadow);
+  animation: card-in 0.5s ease-out both;
+}
+.report-kicker {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 0 12px;
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.report-count {
+  font-family: var(--font-mono);
+}
+.report-card h2 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(1.7rem, 2.6vw, 2.5rem);
+  line-height: 1.05;
+  margin: 0;
+}
+.report-lines,
+.report-notes {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.report-notes {
+  margin-top: 16px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.report-notes li {
+  padding-left: 10px;
+  border-left: 2px solid var(--disclaimer-border);
+}
+.report-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--hud-bg);
+  border-top: 1px solid var(--border);
+}
+.report-bar .grow {
+  flex: 1;
+}
+.report-dots {
+  list-style: none;
+  margin: 0 6px;
+  padding: 0;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.report-dots button {
+  width: 11px;
+  height: 11px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+.report-dots button.is-done {
+  background: var(--text-muted);
+}
+.report-dots button.is-on {
+  background: var(--accent);
+  border-color: var(--accent);
+  transform: scale(1.25);
+}
+
+/* ---- the printed one-page summary ---- */
+.print-root {
+  display: none;
+}
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 9mm;
+  }
+  body > *:not(.print-root) {
+    display: none !important;
+  }
+  html,
+  body {
+    background: #fff !important;
+    color: #111 !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .print-root {
+    display: block;
+    color: #111;
+    font: 9.5pt/1.4 var(--font-sans);
+  }
+  .print-root .pr-title {
+    font: 400 20pt var(--font-display);
+    margin: 0;
+  }
+  .print-root .pr-head p {
+    margin: 2px 0 8px;
+    color: #444;
+  }
+  .pr-grid {
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    gap: 12px;
+  }
+  .pr-views {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    align-content: start;
+  }
+  .pr-views figure {
+    margin: 0;
+    break-inside: avoid;
+  }
+  .pr-views img {
+    width: 100%;
+    display: block;
+    background: #050b14;
+  }
+  .pr-views figcaption {
+    font-size: 8.5pt;
+    margin-top: 2px;
+  }
+  .pr-text table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 8px;
+  }
+  .pr-text caption {
+    text-align: left;
+    font-weight: 700;
+    margin-bottom: 3px;
+  }
+  .pr-text th,
+  .pr-text td {
+    text-align: left;
+    padding: 2px 6px 2px 0;
+    border-bottom: 1px solid #ccc;
+    font-weight: 400;
+  }
+  .pr-text thead th {
+    font-weight: 700;
+  }
+  .pr-text h2 {
+    font: 700 9.5pt var(--font-sans);
+    margin: 7px 0 2px;
+  }
+  .pr-text ul {
+    margin: 0;
+    padding-left: 14px;
+  }
+  .pr-note {
+    color: #444;
+  }
+  .print-root .pr-foot {
+    margin-top: 8px;
+    padding-top: 5px;
+    border-top: 1px solid #999;
+    font-size: 8pt;
+    color: #333;
+  }
+  .pr-disclaimer {
+    margin: 3px 0 0;
+  }
+}

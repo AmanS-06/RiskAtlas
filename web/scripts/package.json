@@ -10,7 +10,6 @@
   "scripts": {
     "models": "node build_viewer_models.mjs",
     "validate": "node validate_models.mjs",
-    "bands": "node gen_viewer_bands.mjs",
     "cvd": "node cvd_check.mjs"
   },
   "devDependencies": {

@@ -17,6 +17,7 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "e2e": "node tests/e2e/smoke.mjs",
     "sync:mock": "node scripts/sync-mock.mjs",
     "sync:reliability": "node scripts/sync-reliability.mjs",
     "palette": "node scripts/palette-report.mjs"
