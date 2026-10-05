@@ -47,7 +47,7 @@ def error(status: int, code: str, message: str, details=None) -> JSONResponse:
 # Python's table has no glTF, and without /etc/mime.types (slim images) it would label a .glb text/plain.
 for _type, _ext in (("model/gltf-binary", ".glb"), ("model/gltf+json", ".gltf"), ("text/javascript", ".js"),
                     ("text/javascript", ".mjs"), ("application/json", ".map"), ("image/svg+xml", ".svg"),
-                    ("font/woff2", ".woff2")):
+                    ("font/woff2", ".woff2"), ("text/markdown", ".md"), ("text/plain", ".txt")):
     mimetypes.add_type(_type, _ext)
 
 

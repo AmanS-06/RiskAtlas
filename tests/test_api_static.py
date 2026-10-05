@@ -35,12 +35,12 @@ def dist(tmp_path):
     root = tmp_path / "dist"
     (root / "assets").mkdir(parents=True)
     (root / "models3d").mkdir()
-    (root / "index.html").write_text(INDEX, encoding="utf-8")
-    (root / "assets" / "index-AbC123.js").write_text(JS, encoding="utf-8")
-    (root / "assets" / "index-AbC123.css").write_text("body{margin:0}\n" * 100, encoding="utf-8")
+    (root / "index.html").write_bytes(INDEX.encode("utf-8"))
+    (root / "assets" / "index-AbC123.js").write_bytes(JS.encode("utf-8"))
+    (root / "assets" / "index-AbC123.css").write_bytes(("body{margin:0}\n" * 100).encode("utf-8"))
     (root / "models3d" / "heart.glb").write_bytes(GLB)
-    (root / "models3d" / "LICENSE-models.md").write_text("# licences\n", encoding="utf-8")
-    (tmp_path / "secret.txt").write_text(SECRET, encoding="utf-8")
+    (root / "models3d" / "LICENSE-models.md").write_bytes(b"# licences\n")
+    (tmp_path / "secret.txt").write_bytes(SECRET.encode("utf-8"))
     return root
 
 
@@ -114,7 +114,7 @@ def test_web_dist_setting(dist, clean_env, tmp_path):
     empty.mkdir()
     clean_env.setattr(settings, "DEFAULT_WEB_DIST", empty)
     assert settings.web_dist(auto=True) is None                  # nothing built there: stay API-only
-    (empty / "index.html").write_text(INDEX)
+    (empty / "index.html").write_bytes(INDEX.encode("utf-8"))
     assert settings.web_dist(auto=True) == empty and settings.web_dist() is None
 
 
@@ -290,7 +290,10 @@ def test_no_path_traversal_at_the_asgi_level(dist, clean_env, path):
 
 
 def test_a_symlink_out_of_dist_is_not_followed(dist, tmp_path, clean_env):
-    (dist / "assets" / "leak.txt").symlink_to(tmp_path / "secret.txt")
+    try:
+        (dist / "assets" / "leak.txt").symlink_to(tmp_path / "secret.txt")
+    except (OSError, NotImplementedError):  # Windows needs a privilege (or Developer Mode) to create symlinks
+        pytest.skip("this account cannot create symlinks")
     with TestClient(create_app(mock=True, web_dist=dist)) as c:
         r = c.get("/assets/leak.txt")
     assert SECRET not in r.text and r.status_code == 404
