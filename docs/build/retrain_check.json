@@ -1,0 +1,33 @@
+{
+ "retrained_models_created": "2026-10-04 16:49:40",
+ "committed_models_created": "2026-10-04 10:11:08",
+ "same_data_sha256": true,
+ "same_family": {
+  "CAD": true,
+  "LAD": true,
+  "LCX": true,
+  "RCA": true
+ },
+ "max_abs_diff_cut_points": 1.0380585280245214e-14,
+ "roc_auc_committed_vs_retrained": {
+  "CAD": [
+   0.9183,
+   0.9187
+  ],
+  "LAD": [
+   0.8354,
+   0.8375
+  ],
+  "LCX": [
+   0.7201,
+   0.725
+  ],
+  "RCA": [
+   0.7279,
+   0.7328
+  ]
+ },
+ "max_abs_diff_headline_roc_auc": 0.0049,
+ "max_abs_diff_any_headline_metric": 0.0219,
+ "max_abs_diff_final_model_probabilities_30_random_inputs": 2.9531932455029164e-14
+}

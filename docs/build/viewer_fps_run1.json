@@ -1,0 +1,123 @@
+{
+  "gl_info": {
+    "webgl2": true,
+    "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+    "aa": false
+  },
+  "band_pixels_high_low_moderate": [
+    {
+      "red": 15283,
+      "green": 0,
+      "amber": 0
+    },
+    {
+      "red": 0,
+      "green": 22958,
+      "amber": 0
+    },
+    {
+      "red": 0,
+      "green": 0,
+      "amber": 14573
+    }
+  ],
+  "outline_pixels": {
+    "plain": [
+      3688,
+      0
+    ],
+    "selected": [
+      7559,
+      3807
+    ]
+  },
+  "canvas_cap_lowpower": {
+    "w": 1163,
+    "h": 687,
+    "cssW": 2198,
+    "cssH": 1298,
+    "dpr": 1
+  },
+  "framing_813x569": {
+    "limiting": 0.88,
+    "fx": 0.555,
+    "fy": 0.88
+  },
+  "framing_813x429": {
+    "limiting": 0.881,
+    "fx": 0.418,
+    "fy": 0.881
+  },
+  "framing_660x349": {
+    "limiting": 0.879,
+    "fx": 0.419,
+    "fy": 0.879
+  },
+  "framing_624x200": {
+    "limiting": 0.879,
+    "fx": 0.252,
+    "fy": 0.879
+  },
+  "framing_400x500": {
+    "limiting": 0.884,
+    "fx": 0.884,
+    "fy": 0.779
+  },
+  "framing_286x318": {
+    "limiting": 0.884,
+    "fx": 0.884,
+    "fy": 0.88
+  },
+  "framing_300x600": {
+    "limiting": 0.879,
+    "fx": 0.879,
+    "fy": 0.478
+  },
+  "framing_1200x400": {
+    "limiting": 0.879,
+    "fx": 0.264,
+    "fy": 0.879
+  },
+  "dispose_check": {
+    "during": 16,
+    "leftover": [],
+    "children": 0,
+    "role": null,
+    "label": "mine",
+    "tabindex": null,
+    "position": "",
+    "lost": true,
+    "framesAfter": 0,
+    "rafAfter": 0,
+    "status": {
+      "loaded": false,
+      "usingFallback": "none",
+      "webgl": false,
+      "triangles": 0
+    }
+  },
+  "TIMING 1280x800 default (auto low power: lite model)": {
+    "fps": 22.6,
+    "statusFps": 20
+  },
+  "TIMING 1280x800 lowPower with the standard model": {
+    "fps": 17.7,
+    "statusFps": 17.1
+  },
+  "TIMING 1280x800 full quality (standard materials, halo)": {
+    "fps": 12.2,
+    "statusFps": 12
+  },
+  "TIMING 1920x1080 default (auto low power)": {
+    "fps": 15.4,
+    "statusFps": 15
+  },
+  "TIMING 390x844 phone default": {
+    "fps": 39.5,
+    "statusFps": 59.9
+  },
+  "load_ms": {
+    "standard": 687,
+    "lite": 490
+  }
+}
