@@ -22,7 +22,9 @@ import {
   clampBpm,
   qualityFor,
   regionOfNode,
-  shouldDowngrade,
+  adaptStep,
+  initialAdapt,
+  type Adapt,
   subsample,
   territoryWeights,
   type Quality,
@@ -69,6 +71,8 @@ export interface HoverInfo {
 }
 
 export interface AtlasStatus {
+  /** share of the full resolution the heart is drawn at (the viewer lowers it on a slow machine) */
+  scale: number;
   loaded: boolean;
   tier: QualityTier;
   software: boolean;
@@ -230,6 +234,11 @@ export class AtlasViewer {
   private error: string | null = null;
   private triangles = 0;
   private frameTimes: number[] = [];
+  private adapt: Adapt = initialAdapt();
+  private adaptFrames: number[] = [];
+  private adaptAt = 0;
+  private lastPointsAt = 0;
+  private rotateOff = false;
   private fpsEst: number | undefined;
   private lastFpsAt = 0;
   private fpsFrames = 0;
@@ -375,7 +384,7 @@ export class AtlasViewer {
     if (this.disposed || !this.renderer) return;
     const w = Math.max(1, this.container.clientWidth);
     const h = Math.max(1, this.container.clientHeight);
-    const pr = Math.min(window.devicePixelRatio || 1, this.quality.maxPixelRatio);
+    const pr = Math.min(window.devicePixelRatio || 1, this.quality.maxPixelRatio) * this.adapt.scale;
     this.renderer.setPixelRatio(pr);
     this.renderer.setSize(w, h, false);
     this.composer?.setPixelRatio(pr);
@@ -395,6 +404,7 @@ export class AtlasViewer {
 
   getStatus(): AtlasStatus {
     return {
+      scale: this.adapt.scale,
       loaded: this.loaded,
       tier: this.quality.tier,
       software: this.env.software,
@@ -496,7 +506,7 @@ export class AtlasViewer {
     if (this.quality.bloom) {
       const w = Math.max(1, this.container.clientWidth);
       const h = Math.max(1, this.container.clientHeight);
-      const target = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, samples: 4 });
+      const target = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, samples: 2 });
       this.composer = new EffectComposer(renderer, target);
       this.composer.addPass(new RenderPass(this.scene, this.camera));
       this.bloom = new UnrealBloomPass(new THREE.Vector2(w, h), 0.55, 0.7, 0.62);
@@ -1014,12 +1024,15 @@ export class AtlasViewer {
       this.fpsEst = Math.round((this.fpsFrames * 1000) / (now - this.lastFpsAt));
       this.fpsFrames = 0;
       this.lastFpsAt = now;
-      if (this.quality.bloom && this.fpsEst < 20 && shouldDowngrade(this.frameTimes, 40, 60)) this.downgrade();
     }
+    this.adaptToMachine(dt * 1000, now);
     this.t += dt;
     this.update(dt, now);
     this.renderFrame();
-    this.emitPoints();
+    if (now - this.lastPointsAt >= 33) {
+      this.lastPointsAt = now;
+      this.emitPoints(); // about 30 times a second is plenty for labels and leader lines, and each emit re-renders the page overlay
+    }
   };
 
   private update(dt: number, now: number): void {
@@ -1103,7 +1116,7 @@ export class AtlasViewer {
       }
     }
     if (this.controls && !this.opts.manual) {
-      this.controls.autoRotate = this.style === 'holo' && !this.reduced && !this.selected && !this.tween && now - this.interactedAt > 5000;
+      this.controls.autoRotate = this.style === 'holo' && !this.reduced && !this.rotateOff && !this.selected && !this.tween && now - this.interactedAt > 5000;
       this.controls.update();
     }
     if (this.pending && !this.opts.manual) {
@@ -1120,14 +1133,30 @@ export class AtlasViewer {
     else this.renderer.render(this.scene, this.camera);
   }
 
-  private downgrade(): void {
-    // the machine cannot hold bloom: drop it and lower the resolution once
-    this.quality = { ...this.quality, bloom: false, maxPixelRatio: 1, particles: false };
-    this.composer?.dispose();
-    this.composer = null;
-    this.bloom = null;
-    if (this.dust) this.dust.visible = false;
-    this.resize();
+  /**
+   * Keeps the heart smooth on a machine weaker than ours: every ~0.75 s the mean frame time of the window decides (see adaptStep in logic.ts) whether to draw
+   * fewer pixels, take an effect away, or creep back up. Frames of a quarter of a second or more (a tab switch) are ignored.
+   */
+  private adaptToMachine(ms: number, now: number): void {
+    if (ms < 250) this.adaptFrames.push(ms);
+    if (now - this.adaptAt < 750) return;
+    const frames = this.adaptFrames;
+    this.adaptFrames = [];
+    this.adaptAt = now;
+    if (frames.length < 8 || this.t < 2) return; // warming up
+    const mean = frames.reduce((x, y) => x + y, 0) / frames.length;
+    const { next, action } = adaptStep(this.adapt, mean);
+    this.adapt = next;
+    if (action === 'scale-down' || action === 'scale-up') this.resize();
+    else if (action === 'drop-particles') {
+      this.quality = { ...this.quality, particles: false };
+      if (this.dust) this.dust.visible = false;
+    } else if (action === 'drop-bloom') {
+      this.quality = { ...this.quality, bloom: false };
+      this.composer?.dispose();
+      this.composer = null;
+      this.bloom = null;
+    } else if (action === 'stop-rotate') this.rotateOff = true;
   }
 
   // ---- outputs -------------------------------------------------------------

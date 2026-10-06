@@ -186,7 +186,7 @@ export interface Quality {
 export function qualityFor(software: boolean, override?: QualityTier): Quality {
   const tier: QualityTier = override ?? (software ? 'low' : 'high');
   return tier === 'high'
-    ? { tier, bloom: true, maxPixelRatio: 2, lite: false, scan: true, particles: true }
+    ? { tier, bloom: true, maxPixelRatio: 1.5, lite: false, scan: true, particles: true }
     : { tier, bloom: false, maxPixelRatio: 1, lite: true, scan: false, particles: false };
 }
 
@@ -195,4 +195,46 @@ export function shouldDowngrade(frameMs: readonly number[], budgetMs = 24, minFr
   if (frameMs.length < minFrames) return false;
   const mean = frameMs.reduce((a, b) => a + b, 0) / frameMs.length;
   return mean > budgetMs;
+}
+
+// ---- adapting to the machine ------------------------------------------------
+
+/** Where the viewer is on its way down (or back up): the share of the full resolution it draws at, the most it may return to, and how far down the ladder it is. */
+export interface Adapt {
+  scale: number;
+  ceiling: number;
+  calm: number;
+  level: number;
+}
+
+export type AdaptAction = 'none' | 'scale-down' | 'scale-up' | 'drop-particles' | 'drop-bloom' | 'stop-rotate';
+
+export const ADAPT = { slowMs: 22, calmMs: 18.5, minScale: 0.55, down: 0.85, up: 1.08, calmEvals: 6 } as const;
+const LADDER: AdaptAction[] = ['drop-particles', 'drop-bloom', 'stop-rotate'];
+
+export const initialAdapt = (): Adapt => ({ scale: 1, ceiling: 1, calm: 0, level: 0 });
+
+/**
+ * One decision from the mean frame time of the last window. Too slow (below about 45 fps): draw fewer pixels first, since most laptops that struggle are
+ * short of GPU fill rate, and only once the picture is already small take effects away one by one. A long calm stretch at the display's own refresh rate
+ * lets the resolution creep back up, but never past the size that was too slow before.
+ */
+export function adaptStep(a: Adapt, meanMs: number): { next: Adapt; action: AdaptAction } {
+  if (meanMs > ADAPT.slowMs) {
+    if (a.scale > ADAPT.minScale + 1e-6) {
+      const scale = Math.max(ADAPT.minScale, a.scale * ADAPT.down);
+      return { next: { ...a, scale, ceiling: Math.min(a.ceiling, a.scale * 0.95), calm: 0 }, action: 'scale-down' };
+    }
+    const action = LADDER[a.level];
+    if (!action) return { next: { ...a, calm: 0 }, action: 'none' };
+    return { next: { ...a, level: a.level + 1, calm: 0 }, action };
+  }
+  if (meanMs <= ADAPT.calmMs) {
+    const calm = a.calm + 1;
+    if (calm >= ADAPT.calmEvals && a.scale < a.ceiling - 1e-6) {
+      return { next: { ...a, scale: Math.min(a.ceiling, a.scale * ADAPT.up), calm: 0 }, action: 'scale-up' };
+    }
+    return { next: { ...a, calm }, action: 'none' };
+  }
+  return { next: { ...a, calm: 0 }, action: 'none' };
 }

@@ -12,6 +12,10 @@ import {
   subsample,
   territoryWeights,
   REGIONS,
+  ADAPT,
+  adaptStep,
+  type Adapt,
+  initialAdapt,
 } from './logic';
 
 describe('regions', () => {
@@ -98,5 +102,59 @@ describe('quality', () => {
     expect(shouldDowngrade(Array(30).fill(60))).toBe(false);
     expect(shouldDowngrade(Array(120).fill(8))).toBe(false);
     expect(shouldDowngrade(Array(120).fill(40))).toBe(true);
+  });
+});
+
+describe('adapting to the machine', () => {
+  it('draws fewer pixels first when frames are too slow, down to a floor', () => {
+    let a = initialAdapt();
+    const seen: number[] = [];
+    for (let i = 0; i < 12; i++) {
+      const r = adaptStep(a, 40);
+      a = r.next;
+      if (r.action === 'scale-down') seen.push(a.scale);
+    }
+    expect(seen[0]).toBeCloseTo(ADAPT.down);
+    expect(seen.every((v, i) => i === 0 || v < seen[i - 1]!)).toBe(true);
+    expect(a.scale).toBeCloseTo(ADAPT.minScale);
+  });
+
+  it('then takes effects away in order, and stops when there is nothing left', () => {
+    let a: Adapt = { ...initialAdapt(), scale: ADAPT.minScale };
+    const actions: string[] = [];
+    for (let i = 0; i < 6; i++) {
+      const r = adaptStep(a, 40);
+      a = r.next;
+      actions.push(r.action);
+    }
+    expect(actions).toEqual(['drop-particles', 'drop-bloom', 'stop-rotate', 'none', 'none', 'none']);
+  });
+
+  it('does nothing while the frame time is acceptable', () => {
+    const r = adaptStep(initialAdapt(), 19.5);
+    expect(r.action).toBe('none');
+    expect(r.next.scale).toBe(1);
+  });
+
+  it('lets the resolution creep back after a long calm stretch, but never above what failed before', () => {
+    let a = adaptStep(initialAdapt(), 40).next;
+    expect(a.ceiling).toBeCloseTo(0.95);
+    let ups = 0;
+    for (let i = 0; i < 60; i++) {
+      const r = adaptStep(a, 16.7);
+      a = r.next;
+      if (r.action === 'scale-up') ups++;
+    }
+    expect(ups).toBeGreaterThan(0);
+    expect(a.scale).toBeLessThanOrEqual(0.95 + 1e-9);
+    expect(a.scale).toBeGreaterThan(0.85);
+  });
+
+  it('a window between calm and slow resets the calm count', () => {
+    let a = initialAdapt();
+    for (let i = 0; i < 5; i++) a = adaptStep(a, 16.7).next;
+    expect(a.calm).toBe(5);
+    a = adaptStep(a, 20).next;
+    expect(a.calm).toBe(0);
   });
 });

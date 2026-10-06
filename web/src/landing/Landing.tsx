@@ -33,6 +33,20 @@ export function Landing() {
   const [p, setP] = useState(0);
   const [videoOk, setVideoOk] = useState(true);
 
+  // While the reader is looking at the first screen, fetch what the workspace needs, so it opens at once: its code, the heart model, the fonts are already in.
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      void import('../app/Workspace');
+      for (const href of [`${BASE}models3d/heart.glb`]) {
+        const link = document.createElement('link');
+        link.rel = 'prefetch';
+        link.href = href;
+        document.head.appendChild(link);
+      }
+    }, 2500);
+    return () => window.clearTimeout(id);
+  }, []);
+
   // Scroll drives the video: the target time follows the scroll bar, the shown time chases it (so a flick of the wheel does not jump).
   useEffect(() => {
     if (reduced) return;

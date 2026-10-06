@@ -74,6 +74,21 @@ export class LivePredictor {
     this.emitBusy();
   }
 
+  /**
+   * commit(), plus the fast model started at the same moment. The fast answer (about a tenth of a second on a laptop, a second or two on a small
+   * host) puts probabilities and colours on screen while the full answer (intervals, explanation, what-if) is still being computed.
+   */
+  commitWithPreview(inputs: Inputs): void {
+    this.version += 1;
+    this.clearTimer();
+    this.pending = null;
+    this.abortFast();
+    this.abortFull();
+    this.run('fast', inputs, this.version);
+    this.run('full', inputs, this.version);
+    this.emitBusy();
+  }
+
   cancel(): void {
     this.version += 1;
     this.clearTimer();

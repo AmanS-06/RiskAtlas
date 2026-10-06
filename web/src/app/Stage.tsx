@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { AtlasStatus, AtlasStyle, AtlasViewer, HoverInfo, RegionPoint } from '../atlas/AtlasViewer';
+import type { AtlasStatus, AtlasStyle, AtlasViewer, RegionPoint } from '../atlas/AtlasViewer';
 import { liveRegions, REGIONS, regionById, clampBpm } from '../atlas/logic';
 import { findBand } from '../shared/palette';
 import { pct } from '../shared/format';
@@ -65,8 +65,16 @@ export function Stage({
   const [ready, setReady] = useState(false);
   const [status, setStatus] = useState<AtlasStatus | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [points, setPoints] = useState<Record<string, RegionPoint>>({});
-  const [hover, setHover] = useState<HoverInfo | null>(null);
+  // Screen positions change every frame while the heart turns. They are written straight to the DOM (layout() below), never through React state,
+  // so the page does not re-render thirty times a second.
+  const pointsRef = useRef<Record<string, RegionPoint>>({});
+  const [hoverId, setHoverId] = useState<string | null>(null);
+  const [hasAnchor, setHasAnchor] = useState(false);
+  const chipEls = useRef(new Map<string, HTMLButtonElement>());
+  const lineEls = useRef(new Map<string, SVGGElement>());
+  const tipEl = useRef<HTMLDivElement | null>(null);
+  const leaderEl = useRef<SVGPolylineElement | null>(null);
+  const layoutRef = useRef<() => void>(() => {});
   const [box, setBox] = useState({ w: 0, h: 0 });
   const [report, setReport] = useState<{ i: number; play: boolean } | null>(null);
   const [printing, setPrinting] = useState(false);
@@ -99,8 +107,14 @@ export function Stage({
         if (import.meta.env.DEV) (window as unknown as { __atlas?: AtlasViewer }).__atlas = v;
         const offs = [
           v.onSelect((id) => regionRef.current(id)),
-          v.onHover((h) => setHover(h)),
-          v.onPoints((pts) => setPoints(Object.fromEntries(pts.map((p) => [p.id, p])))),
+          v.onHover((h) => {
+            if (h && tipEl.current) tipEl.current.style.transform = `translate(${h.x + 14}px, ${h.y + 14}px)`;
+            setHoverId((prev) => (prev === (h?.id ?? null) ? prev : (h?.id ?? null)));
+          }),
+          v.onPoints((pts) => {
+            pointsRef.current = Object.fromEntries(pts.map((p) => [p.id, p]));
+            layoutRef.current();
+          }),
         ];
         const ro = new ResizeObserver(() => setBox({ w: el.clientWidth, h: el.clientHeight }));
         ro.observe(el);
@@ -286,20 +300,12 @@ export function Stage({
         : null,
     [region, meta, d.bands, d.prediction, d.full, d.parsed.inputs, d.fieldSpecs],
   );
-  const hoverDef = hover && hover.id !== region ? regionById(hover.id) : null;
+  const hoverDef = hoverId && hoverId !== region ? regionById(hoverId) : null;
 
-  const chips = useMemo(() => {
-    const cx = box.w / 2;
-    const cy = box.h / 2;
-    return [...live]
-      .map((id) => ({ id, p: points[id] }))
-      .filter((c): c is { id: string; p: RegionPoint } => !!c.p)
-      .map(({ id, p }) => {
-        const dx = p.x - cx;
-        const dy = p.y - cy;
-        const len = Math.hypot(dx, dy) || 1;
-        const ux = dx / len;
-        const uy = dy / len;
+  // what each chip says and its colour: changes with the prediction, not with the camera
+  const chips = useMemo(
+    () =>
+      [...live].map((id) => {
         const target = d.vessels.find((t) => t.mesh === id);
         const resp = target && (ghost ?? d.prediction)?.targets[target.id];
         const was = ghost && target ? d.prediction?.targets[target.id] : undefined;
@@ -312,24 +318,70 @@ export function Stage({
             : id === 'ascending_aorta'
               ? 'Aorta'
               : (def?.label ?? id);
-        return {
-          id,
-          label,
-          x: p.x,
-          y: p.y,
-          cx: p.x + ux * CHIP_PUSH,
-          cy: p.y + uy * CHIP_PUSH,
-          facing: p.facing,
-          color: band?.color ?? null,
-          side: ux >= 0 ? 'r' : 'l',
-        };
-      });
-  }, [live, points, box, ghost, d.vessels, d.prediction, d.bands]);
+        return { id, label, color: band?.color ?? null };
+      }),
+    [live, ghost, d.vessels, d.prediction, d.bands],
+  );
 
-  const anchor = region ? points[region] : undefined;
   const cardX = Math.max(16, box.w - CARD_W - 16);
   const cardTop = 64;
-  const lineEndY = anchor ? Math.max(cardTop + 30, Math.min(anchor.y, cardTop + 130)) : 0;
+
+  // Writes the chips, their leader lines and the selected region's line straight into the DOM from the latest screen positions.
+  useEffect(() => {
+    layoutRef.current = () => {
+      const liveIds = live;
+      const sel = region;
+      const bx = box;
+      const cx0 = cardX;
+      const ct = cardTop;
+      const pts = pointsRef.current;
+      const cx = bx.w / 2;
+      const cy = bx.h / 2;
+      for (const id of liveIds) {
+        const p = pts[id];
+        const btn = chipEls.current.get(id);
+        const g = lineEls.current.get(id);
+        if (!p || !btn) continue;
+        const dx = p.x - cx;
+        const dy = p.y - cy;
+        const len = Math.hypot(dx, dy) || 1;
+        const ux = dx / len;
+        const uy = dy / len;
+        const chipX = p.x + ux * CHIP_PUSH;
+        const chipY = p.y + uy * CHIP_PUSH;
+        btn.style.transform = `translate(${chipX.toFixed(1)}px, ${chipY.toFixed(1)}px) translate(${ux >= 0 ? '0' : '-100%'}, -50%)`;
+        btn.style.visibility = 'visible';
+        if (g) {
+          g.setAttribute('opacity', String(Math.max(0.25, p.facing)));
+          const line = g.firstElementChild as SVGLineElement | null;
+          const dot = g.lastElementChild as SVGCircleElement | null;
+          if (line) {
+            line.setAttribute('x1', p.x.toFixed(1));
+            line.setAttribute('y1', p.y.toFixed(1));
+            line.setAttribute('x2', chipX.toFixed(1));
+            line.setAttribute('y2', chipY.toFixed(1));
+          }
+          if (dot) {
+            dot.setAttribute('cx', p.x.toFixed(1));
+            dot.setAttribute('cy', p.y.toFixed(1));
+          }
+        }
+      }
+      const anchor = sel ? pts[sel] : undefined;
+      setHasAnchor((prev) => (prev === !!anchor ? prev : !!anchor));
+      if (anchor && leaderEl.current) {
+        const endY = Math.max(ct + 30, Math.min(anchor.y, ct + 130));
+        leaderEl.current.setAttribute(
+          'points',
+          `${anchor.x.toFixed(1)},${anchor.y.toFixed(1)} ${(anchor.x + 26).toFixed(1)},${endY.toFixed(1)} ${cx0},${endY}`,
+        );
+      }
+    };
+  });
+  // new chips, a new selection or a new size: place them at once, do not wait for the next frame
+  useEffect(() => {
+    layoutRef.current();
+  }, [chips, region, box, hasAnchor, inReport]);
 
   const failed = status?.error ?? loadError;
 
@@ -341,24 +393,31 @@ export function Stage({
       <div className="hud" aria-hidden={false}>
         <svg className="hud-lines" width={box.w} height={box.h} aria-hidden="true">
           {chips.map((c) => (
-            <g key={c.id} opacity={Math.max(0.25, c.facing)} className={region === c.id ? 'is-on' : ''}>
-              <line x1={c.x} y1={c.y} x2={c.cx} y2={c.cy} />
-              <circle cx={c.x} cy={c.y} r={3.5} fill={c.color ?? 'var(--hud-line)'} />
+            <g
+              key={c.id}
+              ref={(el) => {
+                if (el) lineEls.current.set(c.id, el);
+                else lineEls.current.delete(c.id);
+              }}
+              className={region === c.id ? 'is-on' : ''}
+              opacity={0}
+            >
+              <line x1={0} y1={0} x2={0} y2={0} />
+              <circle cx={0} cy={0} r={3.5} fill={c.color ?? 'var(--hud-line)'} />
             </g>
           ))}
-          {card && anchor && !inReport && (
-            <polyline className="hud-leader" points={`${anchor.x},${anchor.y} ${anchor.x + 26},${lineEndY} ${cardX},${lineEndY}`} key={region} />
-          )}
+          {card && hasAnchor && !inReport && <polyline className="hud-leader" ref={leaderEl} points="" key={region} />}
         </svg>
         {chips.map((c) => (
           <button
             key={c.id}
+            ref={(el) => {
+              if (el) chipEls.current.set(c.id, el);
+              else chipEls.current.delete(c.id);
+            }}
             type="button"
             className={`hud-chip${region === c.id ? ' is-on' : ''}`}
-            style={{
-              transform: `translate(${c.cx}px, ${c.cy}px) translate(${c.side === 'r' ? '0' : '-100%'}, -50%)`,
-              ['--chip' as string]: c.color ?? 'var(--hud-line)',
-            }}
+            style={{ visibility: 'hidden', ['--chip' as string]: c.color ?? 'var(--hud-line)' }}
             onClick={() => select(region === c.id ? null : c.id)}
             aria-pressed={region === c.id}
             data-testid={`chip-${c.id}`}
@@ -367,13 +426,13 @@ export function Stage({
             {c.label}
           </button>
         ))}
-        {hoverDef && hover && (
-          <div className="hud-tip" style={{ transform: `translate(${hover.x + 14}px, ${hover.y + 14}px)` }} role="presentation">
+        {hoverDef && (
+          <div className="hud-tip" ref={tipEl} role="presentation">
             {hoverDef.label}
             <span>{live.has(hoverDef.id) ? 'has data' : 'orientation only'}</span>
           </div>
         )}
-        {card && anchor && !inReport && (
+        {card && hasAnchor && !inReport && (
           <div className="hud-card" style={{ left: cardX, top: cardTop, width: CARD_W }} data-testid="region-card" key={`card-${region}`}>
             <RegionCardView card={card} onClose={() => select(null)} bands={d.bands} />
           </div>

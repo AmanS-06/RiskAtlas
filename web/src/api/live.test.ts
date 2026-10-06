@@ -37,6 +37,50 @@ function manual(honourAbort = true) {
 
 const flush = () => vi.advanceTimersByTimeAsync(0);
 
+describe('LivePredictor.commitWithPreview', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('starts the fast and the full request together; the fast answer shows first, the full answer replaces it', async () => {
+    const m = manual();
+    const log: string[] = [];
+    const live = new LivePredictor(m.provider, { onFast: () => log.push('fast'), onFull: () => log.push('full') });
+    live.commitWithPreview({ age: 60 });
+    await flush();
+    expect(m.calls.map((c) => c.mode).sort()).toEqual(['fast', 'full']);
+    m.calls.find((c) => c.mode === 'fast')!.resolve();
+    await flush();
+    expect(log).toEqual(['fast']);
+    m.calls.find((c) => c.mode === 'full')!.resolve();
+    await flush();
+    expect(log).toEqual(['fast', 'full']);
+  });
+
+  it('drops a fast answer that arrives after the full one', async () => {
+    const m = manual();
+    const log: string[] = [];
+    const live = new LivePredictor(m.provider, { onFast: () => log.push('fast'), onFull: () => log.push('full') });
+    live.commitWithPreview({ age: 60 });
+    await flush();
+    m.calls.find((c) => c.mode === 'full')!.resolve();
+    await flush();
+    m.calls.find((c) => c.mode === 'fast')!.resolve();
+    await flush();
+    expect(log).toEqual(['full']);
+  });
+
+  it('a newer edit cancels both', async () => {
+    const m = manual();
+    const live = new LivePredictor(m.provider, {});
+    live.commitWithPreview({ age: 60 });
+    await flush();
+    live.commitWithPreview({ age: 61 });
+    await flush();
+    const first = m.calls.slice(0, 2);
+    expect(first.every((c) => c.signal.aborted)).toBe(true);
+  });
+});
+
 describe('LivePredictor', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());

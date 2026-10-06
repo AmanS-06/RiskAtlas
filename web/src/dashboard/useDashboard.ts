@@ -148,7 +148,7 @@ export function useDashboard() {
       if (!force && key === lastCommitted.current) return;
       lastCommitted.current = key;
       setDirty(true);
-      predictor.current?.commit(p.inputs);
+      predictor.current?.commitWithPreview(p.inputs);
     },
     [clearResults],
   );
