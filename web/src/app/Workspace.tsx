@@ -32,6 +32,17 @@ export function Workspace() {
   const [look, setLook] = useState<AtlasStyle>(initialLook);
   const [territory, setTerritory] = useState(true);
   const [focus, setFocus] = useState(false);
+  const [rails, setRails] = useState<{ left: boolean; right: boolean }>(() => {
+    const saved = readPref('rails');
+    return saved === null ? { left: true, right: true } : { left: saved.includes('l'), right: saved.includes('r') };
+  });
+  const toggleRail = useCallback((side: 'left' | 'right') => {
+    setRails((r) => {
+      const next = { ...r, [side]: !r[side] };
+      writePref('rails', `${next.left ? 'l' : ''}${next.right ? 'r' : ''}`);
+      return next;
+    });
+  }, []);
   const [ghostState, setGhost] = useState<{ changes: Counterfactual['changes']; pred: FastPrediction | null; key: string } | null>(null);
   const rawKey = JSON.stringify(d.raw);
   const ghost = ghostState && ghostState.key === rawKey ? ghostState : null; // any edit of the patient ends the preview
@@ -96,6 +107,19 @@ export function Workspace() {
     return () => document.removeEventListener('keydown', onKey);
   }, [focus]);
 
+  // [ folds the patient panel, ] the results panel (not while typing in a field)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === '[') toggleRail('left');
+      if (e.key === ']') toggleRail('right');
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [toggleRail]);
+
   const analysis = d.meta && {
     meta: d.meta,
     bands: d.bands,
@@ -136,8 +160,8 @@ export function Workspace() {
         </main>
       )}
       {meta && analysis && (
-        <main className={`ws${focus ? ' is-focus' : ''}`} id="main">
-          <aside className="rail rail-left" aria-label="Patient">
+        <main className={`ws${focus ? ' is-focus' : ''}${rails.left ? '' : ' no-left'}${rails.right ? '' : ' no-right'}`} id="main">
+          <aside className="rail rail-left" aria-label="Patient" inert={!rails.left}>
             <Intake d={d} />
           </aside>
           <Stage
@@ -151,9 +175,13 @@ export function Workspace() {
             territory={territory}
             onTerritory={setTerritory}
             enlarged={focus}
+            leftOpen={rails.left}
+            rightOpen={rails.right}
+            onToggleLeft={() => toggleRail('left')}
+            onToggleRight={() => toggleRail('right')}
             onEnlarge={() => setFocus((v) => !v)}
           />
-          <aside className="rail rail-right" aria-label="Results">
+          <aside className="rail rail-right" aria-label="Results" inert={!rails.right}>
             <ResultsPanel
               meta={meta}
               bands={d.bands}

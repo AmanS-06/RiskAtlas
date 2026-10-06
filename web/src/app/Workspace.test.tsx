@@ -77,6 +77,50 @@ describe('focus mode', () => {
   });
 });
 
+describe('folding the side panels', () => {
+  it('each panel folds away on its edge tab, gives the room back, and the choice is remembered', async () => {
+    const user = userEvent.setup();
+    await loaded();
+    const main = screen.getByRole('main');
+    expect(main).not.toHaveClass('no-left');
+    await user.click(await screen.findByTestId('toggle-left', undefined, waitOpts));
+    expect(main).toHaveClass('no-left');
+    expect(main).not.toHaveClass('no-right');
+    expect(screen.getByTestId('toggle-left')).toHaveAttribute('aria-expanded', 'false');
+    expect(localStorage.getItem('riskatlas:rails')).toBe('r');
+    await user.click(screen.getByTestId('toggle-right'));
+    expect(main).toHaveClass('no-left', 'no-right');
+    expect(localStorage.getItem('riskatlas:rails')).toBe('');
+    await user.click(screen.getByTestId('toggle-left'));
+    await user.click(screen.getByTestId('toggle-right'));
+    expect(main).not.toHaveClass('no-left');
+    expect(main).not.toHaveClass('no-right');
+  });
+
+  it('[ and ] fold them from the keyboard, but not while typing in a field', async () => {
+    const user = userEvent.setup();
+    await loaded();
+    const main = screen.getByRole('main');
+    await user.click(document.body);
+    await user.keyboard('[['); // user-event: [[ types a single [
+    expect(main).toHaveClass('no-left');
+    await user.keyboard(']');
+    expect(main).toHaveClass('no-right');
+    await user.keyboard('[[]');
+    expect(main).not.toHaveClass('no-left');
+    await user.click(screen.getByTestId('field-age'));
+    await user.keyboard('[[');
+    expect(main).not.toHaveClass('no-left');
+  });
+
+  it('starts with the panels the reader left folded last time', async () => {
+    localStorage.setItem('riskatlas:rails', 'l');
+    await loaded();
+    expect(screen.getByRole('main')).toHaveClass('no-right');
+    expect(screen.getByRole('main')).not.toHaveClass('no-left');
+  });
+});
+
 describe('input form is built from /meta', () => {
   it('groups, controls and units come from config', async () => {
     await loaded();

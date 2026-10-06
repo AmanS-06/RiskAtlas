@@ -81,10 +81,26 @@
 
 /* ---- columns ---- */
 .ws {
+  --lw: 350px;
+  --rw: 410px;
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 350px minmax(0, 1fr) 410px;
+  grid-template-columns: var(--lw) minmax(0, 1fr) var(--rw);
+}
+.ws.no-left {
+  --lw: 0px;
+}
+.ws.no-right {
+  --rw: 0px;
+}
+/* folded, not removed: the panel keeps its grid cell (at 0 width) so the heart and the other panel stay in their own columns */
+.ws.no-left .rail-left,
+.ws.no-right .rail-right {
+  visibility: hidden;
+  overflow: hidden;
+  border: 0;
+  padding: 0;
 }
 .ws.is-focus {
   grid-template-columns: minmax(0, 1fr);
@@ -711,7 +727,14 @@
 
 @media (max-width: 1280px) {
   .ws {
-    grid-template-columns: 310px minmax(0, 1fr) 360px;
+    --lw: 310px;
+    --rw: 360px;
+  }
+  .ws.no-left {
+    --lw: 0px;
+  }
+  .ws.no-right {
+    --rw: 0px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -947,4 +970,46 @@
   background: var(--hud-bg);
   font-size: var(--text-sm);
   white-space: nowrap;
+}
+
+/* ---- edge tabs that fold the side panels away, to give the heart the room ---- */
+.rail-toggle {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 30px;
+  min-height: 112px;
+  padding: 8px 0;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  background: var(--hud-bg);
+  color: var(--text);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  writing-mode: vertical-rl;
+  cursor: pointer;
+}
+.rail-toggle:hover {
+  background: var(--accent-soft);
+}
+.rail-toggle.left {
+  left: 0;
+  border-left: 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.rail-toggle.right {
+  right: 0;
+  border-right: 0;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+.rail-toggle svg {
+  flex: none;
+}
+.stage.is-report .rail-toggle {
+  display: none;
 }

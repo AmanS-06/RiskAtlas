@@ -26,6 +26,10 @@ interface Props {
   onTerritory: (on: boolean) => void;
   enlarged: boolean;
   onEnlarge: () => void;
+  leftOpen: boolean;
+  rightOpen: boolean;
+  onToggleLeft: () => void;
+  onToggleRight: () => void;
 }
 
 const BASE = import.meta.env.BASE_URL;
@@ -38,7 +42,23 @@ function forcedQuality(): 'high' | 'low' | undefined {
   return q === 'high' || q === 'low' ? q : undefined;
 }
 
-export function Stage({ d, ghost, onGhostClear, region, onRegion, style, onStyle, territory, onTerritory, enlarged, onEnlarge }: Props) {
+export function Stage({
+  d,
+  ghost,
+  onGhostClear,
+  region,
+  onRegion,
+  style,
+  onStyle,
+  territory,
+  onTerritory,
+  enlarged,
+  onEnlarge,
+  leftOpen,
+  rightOpen,
+  onToggleLeft,
+  onToggleRight,
+}: Props) {
   const host = useRef<HTMLDivElement>(null);
   const viewer = useRef<AtlasViewer | null>(null);
   const regionRef = useRef(onRegion);
@@ -435,6 +455,35 @@ export function Stage({ d, ghost, onGhostClear, region, onRegion, style, onStyle
         </ul>
       </details>
 
+      {!enlarged && (
+        <>
+          <button
+            type="button"
+            className="rail-toggle left"
+            onClick={onToggleLeft}
+            aria-expanded={leftOpen}
+            aria-label={leftOpen ? 'Hide the patient panel' : 'Show the patient panel'}
+            title="Patient panel ( [ )"
+            data-testid="toggle-left"
+          >
+            <Chevron dir={leftOpen ? 'left' : 'right'} />
+            {leftOpen ? 'Hide' : 'Patient'}
+          </button>
+          <button
+            type="button"
+            className="rail-toggle right"
+            onClick={onToggleRight}
+            aria-expanded={rightOpen}
+            aria-label={rightOpen ? 'Hide the results panel' : 'Show the results panel'}
+            title="Results panel ( ] )"
+            data-testid="toggle-right"
+          >
+            <Chevron dir={rightOpen ? 'right' : 'left'} />
+            {rightOpen ? 'Hide' : 'Results'}
+          </button>
+        </>
+      )}
+
       <div className="stage-foot">
         <span className="beat" data-testid="bpm">
           <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
@@ -442,7 +491,7 @@ export function Stage({ d, ghost, onGhostClear, region, onRegion, style, onStyle
           </svg>
           {Math.round(bpm)} bpm <em>{pulse === null || pulse === undefined ? 'resting default, no pulse entered' : 'from the pulse rate entered'}</em>
         </span>
-        <span className="hint-line">Drag to rotate · scroll to zoom · click a structure · double-click to reset</span>
+        <span className="hint-line">Drag to rotate · scroll to zoom · click a structure · double-click to reset · [ and ] fold the panels</span>
         {status && status.tier === 'low' && (
           <span className="tier" title={status.renderer}>
             Simple rendering (no GPU detected)
@@ -491,5 +540,20 @@ export function Stage({ d, ghost, onGhostClear, region, onRegion, style, onStyle
         </div>
       )}
     </section>
+  );
+}
+
+function Chevron({ dir }: { dir: 'left' | 'right' }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+      <path
+        d={dir === 'left' ? 'M8 1.5 3.5 6 8 10.5' : 'M4 1.5 8.5 6 4 10.5'}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
