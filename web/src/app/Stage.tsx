@@ -70,6 +70,8 @@ export function Stage({
   const pointsRef = useRef<Record<string, RegionPoint>>({});
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [hasAnchor, setHasAnchor] = useState(false);
+  // by default only the three arteries (and whatever is selected) carry a label; the toggle adds the chambers and the aorta
+  const [allLabels, setAllLabels] = useState(false);
   const chipEls = useRef(new Map<string, HTMLButtonElement>());
   const lineEls = useRef(new Map<string, SVGGElement>());
   const tipEl = useRef<HTMLDivElement | null>(null);
@@ -305,22 +307,24 @@ export function Stage({
   // what each chip says and its colour: changes with the prediction, not with the camera
   const chips = useMemo(
     () =>
-      [...live].map((id) => {
-        const target = d.vessels.find((t) => t.mesh === id);
-        const resp = target && (ghost ?? d.prediction)?.targets[target.id];
-        const was = ghost && target ? d.prediction?.targets[target.id] : undefined;
-        const band = resp && findBand(d.bands, resp.band);
-        const def = regionById(id);
-        const label = target
-          ? `${target.mesh} ${was && resp ? `${pct(was.probability)}→${pct(resp.probability)}` : resp ? pct(resp.probability) : ''}`.trim()
-          : id === 'left_ventricle'
-            ? 'LV'
-            : id === 'ascending_aorta'
-              ? 'Aorta'
-              : (def?.label ?? id);
-        return { id, label, color: band?.color ?? null };
-      }),
-    [live, ghost, d.vessels, d.prediction, d.bands],
+      [...live]
+        .filter((id) => allLabels || id === region || d.vessels.some((t) => t.mesh === id))
+        .map((id) => {
+          const target = d.vessels.find((t) => t.mesh === id);
+          const resp = target && (ghost ?? d.prediction)?.targets[target.id];
+          const was = ghost && target ? d.prediction?.targets[target.id] : undefined;
+          const band = resp && findBand(d.bands, resp.band);
+          const def = regionById(id);
+          const label = target
+            ? `${target.mesh} ${was && resp ? `${pct(was.probability)}→${pct(resp.probability)}` : resp ? pct(resp.probability) : ''}`.trim()
+            : id === 'left_ventricle'
+              ? 'LV'
+              : id === 'ascending_aorta'
+                ? 'Aorta'
+                : (def?.label ?? id);
+          return { id, label, color: band?.color ?? null };
+        }),
+    [live, ghost, d.vessels, d.prediction, d.bands, allLabels, region],
   );
 
   const cardX = Math.max(16, box.w - CARD_W - 16);
@@ -473,6 +477,16 @@ export function Stage({
         <button
           type="button"
           className="tool"
+          aria-pressed={allLabels}
+          onClick={() => setAllLabels((v) => !v)}
+          title="Also label the chambers and the aorta"
+          data-testid="labels-toggle"
+        >
+          Labels
+        </button>
+        <button
+          type="button"
+          className="tool"
           onClick={startReport}
           disabled={!ready || steps.length === 0}
           title={steps.length === 0 ? 'Run a full prediction first' : 'A guided tour of this case'}
@@ -495,7 +509,7 @@ export function Stage({
         </button>
       </div>
 
-      <details className="structures" open>
+      <details className="structures">
         <summary>Structures</summary>
         <ul aria-label="Structures of the heart">
           {REGIONS.filter((r) => r.kind !== 'minor' || r.id === 'pulmonary_veins').map((r) => (

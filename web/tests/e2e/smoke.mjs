@@ -79,6 +79,7 @@ try {
   await page.screenshot({ path: `${shots}/workspace_lad.png` });
   await axeScan(page, 'workspace with a region panel open');
 
+  await page.getByText('Structures', { exact: true }).click(); // the list starts closed
   await page.getByRole('button', { name: 'Left ventricle' }).click();
   await page.getByText('Findings on this structure').waitFor();
   check((await page.getByTestId('region-card').textContent()).includes('Ejection fraction'), 'left ventricle panel shows its findings');

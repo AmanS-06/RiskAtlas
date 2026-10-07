@@ -850,6 +850,7 @@ export class AtlasViewer {
 
   private applyStyle(): void {
     const holo = this.style === 'holo';
+    this.shared.real.value = holo ? 0 : 1;
     if (this.floor) this.floor.visible = holo;
     if (this.dust) this.dust.visible = holo && this.quality.particles;
     this.scene.background = new THREE.Color(holo ? (this.opts.background ?? '#050b14') : '#0a0f16');
